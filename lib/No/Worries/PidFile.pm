@@ -13,8 +13,8 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.7 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.2_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.9 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -134,8 +134,8 @@ sub pf_check ($@) {
     $path = shift(@_);
     %option = validate(@_, \%pf_check_options) if @_;
     $option{pid} ||= $$;
-    sysopen($fh, $path, O_RDONLY)
-	or dief("cannot sysopen(%s, O_RDONLY): %s", $path, $!);
+    sysopen($fh, $path, O_RDWR)
+	or dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     $data = _read($path, $fh);
     if ($data =~ /^(\d+)\s*$/s) {
 	($pid, $action) = ($1, "");
@@ -186,12 +186,12 @@ sub pf_status ($@) {
 
     $path = shift(@_);
     %option = validate(@_, \%pf_status_options) if @_;
-    unless (sysopen($fh, $path, O_RDONLY)) {
+    unless (sysopen($fh, $path, O_RDWR)) {
 	if ($! == ENOENT) {
 	    ($status, $message) = (0, "does not seem to be running (no pid file)");
 	    goto done;
 	}
-	dief("cannot sysopen(%s, O_RDONLY): %s", $path, $!);
+	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     }
     @stat = stat($fh)
 	or dief("cannot stat(%s): %s", $path, $!);
@@ -278,7 +278,7 @@ sub pf_quit ($@) {
     }
     # in any case, we make sure that _this_ pid file does not exist anymore
     # we have to be extra careful to make sure it is the same pid file
-    unless (sysopen($fh, $path, O_RDONLY)) {
+    unless (sysopen($fh, $path, O_RDWR)) {
 	return if $! == ENOENT;
 	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     }
@@ -338,7 +338,7 @@ No::Worries::PidFile - pid file handling without worries
   }
 
   # here is how to handle a --quit option
-  if ($Option{status}) {
+  if ($Option{quit}) {
       pf_quit($pidfile,
           linger   => 10,
           callback => sub { printf("myprog %s\n", $_[0]) },
@@ -444,7 +444,8 @@ else fails; supported options:
 
 =item * C<callback>: code that will be called with information to report
 
-=item * C<linger>: maximum time to wait after having told the process to quit
+=item * C<linger>: maximum time to wait after having told the process
+to quit (default: 5)
 
 =item * C<kill>: kill specification to use when killing the process
 

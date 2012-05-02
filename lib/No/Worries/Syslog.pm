@@ -13,8 +13,8 @@
 package No::Worries::Syslog;
 use strict;
 use warnings;
-our $VERSION  = "0.2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.2_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -144,11 +144,11 @@ sub syslog_debug   ($@) { _syslog_any("debug",   "DEBUG",   @_) }
 sub log2syslog ($) {
     my($info) = @_;
 
-    if ($info->{level} eq No::Worries::Log::LEVEL_ERROR) {
+    if ($info->{level} eq "error") {
 	syslog_error($info->{message});
-    } elsif ($info->{level} eq No::Worries::Log::LEVEL_WARNING) {
+    } elsif ($info->{level} eq "warning") {
 	syslog_warning($info->{message});
-    } elsif ($info->{level} eq No::Worries::Log::LEVEL_INFO) {
+    } elsif ($info->{level} eq "info") {
 	syslog_info($info->{message});
     } else {
 	syslog_debug($info->{message}); # for debug _and_ trace

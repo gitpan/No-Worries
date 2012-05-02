@@ -13,8 +13,8 @@
 package No::Worries::Proc;
 use strict;
 use warnings;
-our $VERSION  = "0.2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.2_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -541,7 +541,7 @@ No::Worries::Proc - process handling without worries
 
 =head1 SYNOPSIS
 
-  use No::Worries qw(proc_run proc_create proc_monitor proc_detach);
+  use No::Worries::Proc qw(proc_run proc_create proc_monitor proc_detach);
 
   # simple interface to execute a command
   $status = proc_run(command => [ "foo", "-x", 7 ]);

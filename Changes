@@ -1,5 +1,8 @@
 Revision history for No-Worries:
 
+???	???
+	* Portability fixes for process and pid file handling.
+
 0.2	Mon Apr 30 2012
 	* Improved documentation, portability and symbol export control.
 	* Improved No::Worries::Log's handlers.

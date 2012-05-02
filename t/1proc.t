@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use Config qw(%Config);
-use Test::More tests => 41;
+use Test::More;
 use File::Temp qw(tempdir);
 use No::Worries::File qw(file_read file_write);
 
@@ -12,11 +12,31 @@ use No::Worries::Proc qw(*);
 our($perl, $tmpdir, $path, $status, $stdin, $stdout, $stderr, $test, %proc);
 
 #
+# operating system checks
+#
+
+if ($^O =~ /^(cygwin|dos|MSWin32)$/) {
+    plan skip_all => "Not supported (yet) on $^O";
+} else {
+    plan tests => 41;
+}
+
+#
 # helpers
 #
 
 sub tp (@) {
     return($perl, "tp", @_);
+}
+
+sub match ($$$) {
+    my($string, $regexp, $message) = @_;
+
+    if ($string =~ $regexp) {
+	ok(1, $message);
+    } else {
+	is($string, "match $regexp", $message);
+    }
 }
 
 #
@@ -54,10 +74,10 @@ is(file_read($path), "stdout\n", "file stdout");
 ok(unlink($path), "unlink");
 
 $status = $stdin = $stdout = $stderr = undef;
-%proc = proc_run(command => [ tp(qw(-stdout -stderr -sleep 3)) ], stdout => \$stdout, stderr => \$stderr, timeout => 0.1);
+%proc = proc_run(command => [ tp(qw(-stdout -stderr -sleep 3)) ], stdout => \$stdout, stderr => \$stderr, timeout => 0.5);
 ok($proc{timeout}, "timeout");
 is($stdout, "", "empty stdout");
-ok($stderr =~ /Caught a SIG/, "killed stderr");
+match($stderr, qr/received SIG[A-Z]+ /, "killed stderr");
 
 $path = "test.stdin";
 $test = scalar(localtime(time())) . "\n";
@@ -109,12 +129,13 @@ foreach $test (qw(stop status timeout)) {
     ok(!defined($proc{stderr}{$test}), "proc stderr !$test");
 }
 # terminate the other
+select(undef, undef, undef, 0.5);
 proc_terminate($proc{stderr});
 proc_monitor([ values(%proc) ], timeout => 0);
 ok($proc{stderr}{stop}, "proc stderr stop");
 ok($proc{stderr}{status}, "proc stderr status");
 ok(!defined($proc{stderr}{timeout}), "proc stderr !timeout");
-ok($stderr =~ /SIG/, "proc stderr stderr");
+match($stderr, qr/received SIG[A-Z]+ /, "proc stderr stderr");
 
 __DATA__
 #
@@ -123,12 +144,12 @@ __DATA__
 
 use strict;
 use warnings;
-use sigtrap qw(die normal-signals);
 use Getopt::Long qw(GetOptions);
 
 our(%Option);
 
 sub init () {
+    $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub { die("tp: received SIG$_[0]") };
     $Option{exit} = 0;
     $Option{separator} = "\n";
     GetOptions(\%Option,

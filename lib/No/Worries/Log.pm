@@ -13,8 +13,8 @@
 package No::Worries::Log;
 use strict;
 use warnings;
-our $VERSION  = "0.2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.8 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.2_1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.9 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -31,11 +31,11 @@ use Sys::Hostname qw(hostname);
 # constants
 #
 
-use constant LEVEL_ERROR   => "error";
-use constant LEVEL_WARNING => "warning";
-use constant LEVEL_INFO    => "info";
-use constant LEVEL_DEBUG   => "debug";
-use constant LEVEL_TRACE   => "trace";
+use constant _LEVEL_ERROR   => "error";
+use constant _LEVEL_WARNING => "warning";
+use constant _LEVEL_INFO    => "info";
+use constant _LEVEL_DEBUG   => "debug";
+use constant _LEVEL_TRACE   => "trace";
 
 #
 # global variables
@@ -223,7 +223,7 @@ sub log_filter ($) {
 	pop(@filter);
     } else {
 	# empty filter => default behavior
-	%il = (LEVEL_INFO() => 1);
+	%il = (_LEVEL_INFO() => 1);
 	@filter = ("1");
     }
     $ii  = _compile_filter(0, @filter);
@@ -251,7 +251,7 @@ sub log2std ($) {
     $string = sprintf("%s %s %s[%d]: %s\n",
 		      $_Level2Char{$info->{level}}, date_stamp($info->{time}),
 		      $info->{program}, $info->{pid}, $info->{message});
-    $fh = $info->{level} eq LEVEL_INFO ? *STDOUT : *STDERR;
+    $fh = $info->{level} eq _LEVEL_INFO ? *STDOUT : *STDERR;
     $fh->print($string);
     $fh->flush();
     return(1);
@@ -373,11 +373,11 @@ sub _handle ($$) {
 # check whether a level is "active"
 #
 
-sub log_wants_error   () { return($_InterestingLevel{LEVEL_ERROR()})   }
-sub log_wants_warning () { return($_InterestingLevel{LEVEL_WARNING()}) }
-sub log_wants_info    () { return($_InterestingLevel{LEVEL_INFO()})    }
-sub log_wants_debug   () { return($_InterestingLevel{LEVEL_DEBUG()})   }
-sub log_wants_trace   () { return($_InterestingLevel{LEVEL_TRACE()})   }
+sub log_wants_error   () { return($_InterestingLevel{_LEVEL_ERROR()})   }
+sub log_wants_warning () { return($_InterestingLevel{_LEVEL_WARNING()}) }
+sub log_wants_info    () { return($_InterestingLevel{_LEVEL_INFO()})    }
+sub log_wants_debug   () { return($_InterestingLevel{_LEVEL_DEBUG()})   }
+sub log_wants_trace   () { return($_InterestingLevel{_LEVEL_TRACE()})   }
 
 #
 # log error information
@@ -387,13 +387,13 @@ sub log_error (@) {
     my(@args) = @_;
     my($attrs);
 
-    return(0) unless $_InterestingLevel{LEVEL_ERROR()};
+    return(0) unless $_InterestingLevel{_LEVEL_ERROR()};
     if (@args and ref($args[$#args]) eq "HASH") {
 	$attrs = pop(@args);
     } else {
 	$attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => LEVEL_ERROR }));
+    return(_handle(\@args, { %$attrs, level => _LEVEL_ERROR }));
 }
 
 #
@@ -404,13 +404,13 @@ sub log_warning (@) {
     my(@args) = @_;
     my($attrs);
 
-    return(0) unless $_InterestingLevel{LEVEL_WARNING()};
+    return(0) unless $_InterestingLevel{_LEVEL_WARNING()};
     if (@args and ref($args[$#args]) eq "HASH") {
 	$attrs = pop(@args);
     } else {
 	$attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => LEVEL_WARNING }));
+    return(_handle(\@args, { %$attrs, level => _LEVEL_WARNING }));
 }
 
 #
@@ -421,13 +421,13 @@ sub log_info (@) {
     my(@args) = @_;
     my($attrs);
 
-    return(0) unless $_InterestingLevel{LEVEL_INFO()};
+    return(0) unless $_InterestingLevel{_LEVEL_INFO()};
     if (@args and ref($args[$#args]) eq "HASH") {
 	$attrs = pop(@args);
     } else {
 	$attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => LEVEL_INFO }));
+    return(_handle(\@args, { %$attrs, level => _LEVEL_INFO }));
 }
 
 #
@@ -438,13 +438,13 @@ sub log_debug (@) {
     my(@args) = @_;
     my($attrs);
 
-    return(0) unless $_InterestingLevel{LEVEL_DEBUG()};
+    return(0) unless $_InterestingLevel{_LEVEL_DEBUG()};
     if (@args and ref($args[$#args]) eq "HASH") {
 	$attrs = pop(@args);
     } else {
 	$attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => LEVEL_DEBUG }));
+    return(_handle(\@args, { %$attrs, level => _LEVEL_DEBUG }));
 }
 
 #
@@ -452,10 +452,10 @@ sub log_debug (@) {
 #
 
 sub log_trace () {
-    return(0) unless $_InterestingLevel{LEVEL_TRACE()};
+    return(0) unless $_InterestingLevel{_LEVEL_TRACE()};
     return(_handle(
         [ "in %s at %s line %s", \ "caller", \ "file", \ "line" ],
-        { level => LEVEL_TRACE },
+        { level => _LEVEL_TRACE },
     ));
 }
 
@@ -489,8 +489,8 @@ grep($_KnownLevel{$_}++, keys(%_Level2Char));
 
 # by default we only care about informational level or higher
 %_InterestingLevel = %_KnownLevel;
-delete($_InterestingLevel{LEVEL_DEBUG()});
-delete($_InterestingLevel{LEVEL_TRACE()});
+delete($_InterestingLevel{_LEVEL_DEBUG()});
+delete($_InterestingLevel{_LEVEL_TRACE()});
 
 # by default we do not filter anything out
 $_MaybeInterestingInfo = $_InterestingInfo = sub { return(1) };
