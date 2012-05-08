@@ -13,8 +13,8 @@
 package No::Worries::Proc;
 use strict;
 use warnings;
-our $VERSION  = "0.2_1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.2_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.13 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -71,11 +71,54 @@ sub _chk_proc ($) {
 }
 
 #
+# close a file handle used for IPC
+#
+
+sub _close ($$$$) {
+    my($proc, $fh, $what, $ios) = @_;
+
+    $ios->remove($fh) if $ios;
+    close($fh) or dief("cannot close(): %s", $!);
+    delete($proc->{"fh$what"});
+    delete($proc->{"cb$what"});
+}
+
+#
+# try to read from a dead process in case we called _is_alive() on it
+# before all its output pipes got emptied...
+#
+
+sub _read_zombie ($$$) {
+    my($proc, $iosr, $iosw) = @_;
+    my($what, $fh, $buf, $done);
+
+    foreach $what (qw(in)) {
+	next unless $proc->{"fh$what"} and $proc->{"cb$what"};
+	$fh = $proc->{"fh$what"};
+	# no write, simply close
+	_close($proc, $fh, $what, $iosw);
+    }
+    foreach $what (qw(out err)) {
+	next unless $proc->{"fh$what"} and $proc->{"cb$what"};
+	$fh = $proc->{"fh$what"};
+	# read until EOF then close
+	$done = 1;
+	while ($done) {
+	    $buf = "";
+	    $done = sysread($fh, $buf, 8192);
+	    dief("cannot sysread(): %s", $!) unless defined($done);
+	    $proc->{"cb$what"}($proc, $buf);
+	}
+	_close($proc, $fh, $what, $iosr);
+    }
+}
+
+#
 # check if a process is alive, record its status if not
 #
 
-sub _is_alive ($) {
-    my($proc) = @_;
+sub _is_alive ($$$) {
+    my($proc, $iosr, $iosw) = @_;
 
     # check if it recently died
     if (waitpid($proc->{pid}, WNOHANG) == $proc->{pid}) {
@@ -83,6 +126,7 @@ sub _is_alive ($) {
 	$proc->{stop} = Time::HiRes::time();
 	delete($proc->{maxtime});
 	delete($proc->{kill});
+	_read_zombie($proc, $iosr, $iosw);
 	return(0); # no
     }
     # check if we can kill it
@@ -281,7 +325,9 @@ sub proc_create (@) {
 #
 
 my %proc_terminate_options = (
-    kill => { optional => 1, type => SCALAR, regex => qr/^${ksre}$/ },
+    kill  => { optional => 1, type => SCALAR, regex => qr/^${ksre}$/ },
+    _iosr => { optional => 1, type => UNDEF|OBJECT },
+    _iosw => { optional => 1, type => UNDEF|OBJECT },
 );
 
 sub proc_terminate ($@) {
@@ -310,10 +356,10 @@ sub proc_terminate ($@) {
 	}
 	$maxtime = Time::HiRes::time() + $grace;
 	while (Time::HiRes::time() < $maxtime) {
-	    return unless _is_alive($proc);
+	    return unless _is_alive($proc, $option{_iosr}, $option{_iosw});
 	    select(undef, undef, undef, 0.01);
 	}
-	return unless _is_alive($proc);
+	return unless _is_alive($proc, $option{_iosr}, $option{_iosw});
     }
     # hard kill
     $sig = "KILL";
@@ -334,7 +380,7 @@ my %proc_monitor_options = (
 
 sub proc_monitor ($@) {
     my($procs, %option, %proc, $proc, $what, $fh, %map, $now, $maxtime, $zombies);
-    my($iosr, $iosw, $iosx, $timeout, $buf, $done);
+    my($iosr, $iosw, $timeout, $buf, $done);
 
     #
     # preparation
@@ -382,7 +428,6 @@ sub proc_monitor ($@) {
 	$timeout = 0.001;
 	# read what can be read
 	if ($iosr) {
-	    $iosx = 0;
 	    foreach $fh ($iosr->can_read($timeout)) {
 		$timeout = 0;
 		$buf = "";
@@ -392,20 +437,12 @@ sub proc_monitor ($@) {
 		$what = $map{"$fh"}[1];
 		$proc->{"cb$what"}($proc, $buf);
 		unless ($done) {
-		    $iosx++;
-		    $iosr->remove($fh);
-		    close($fh) or dief("cannot close(): %s", $!);
-		    delete($proc->{"fh$what"});
-		    delete($proc->{"cb$what"});
+		    _close($proc, $fh, $what, $iosr);
 		}
-	    }
-	    if ($iosx) {
-		$iosr = undef unless $iosr->count();
 	    }
 	}
 	# write what can be written
 	if ($iosw) {
-	    $iosx = 0;
 	    foreach $fh ($iosw->can_write($timeout)) {
 		$timeout = 0;
 		$proc = $proc{$map{"$fh"}[0]};
@@ -416,20 +453,13 @@ sub proc_monitor ($@) {
 		    dief("cannot syswrite(): %s", $!) unless defined($done);
 		    substr($proc->{"buf$what"}, 0, $done) = "";
 		} else {
-		    $iosx++;
-		    $iosw->remove($fh);
-		    close($fh) or dief("cannot close(): %s", $!);
-		    delete($proc->{"fh$what"});
-		    delete($proc->{"buf$what"});
+		    _close($proc, $fh, $what, $iosw);
 		}
-	    }
-	    if ($iosx) {
-		$iosw = undef unless $iosw->count();
 	    }
 	}
 	# check if some processes finished
 	foreach $proc (grep(!defined($_->{status}), values(%proc))) {
-	    next if _is_alive($proc);
+	    next if _is_alive($proc, $iosr, $iosw);
 	    $timeout = 0;
 	}
 	# check if some processes timed out
@@ -439,7 +469,7 @@ sub proc_monitor ($@) {
 	    $timeout = 0;
 	    delete($proc->{maxtime});
 	    $proc->{timeout} = $now;
-	    proc_terminate($proc);
+	    proc_terminate($proc, _iosr => $iosr, _iosw => $iosw);
 	}
 	# or if we timed out
 	last if $maxtime and $now > $maxtime;
@@ -448,6 +478,9 @@ sub proc_monitor ($@) {
 	    and grep(defined($_->{status}), values(%proc)) >= $zombies + $option{deaths};
 	# sleep a bit if needed (= if we have not worked before in the loop)
 	select(undef, undef, undef, $timeout) if $timeout;
+	# update the IO::Select objects
+	$iosr = undef unless $iosr and $iosr->count();
+	$iosw = undef unless $iosw and $iosw->count();
     }
 }
 

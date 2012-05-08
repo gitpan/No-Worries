@@ -74,10 +74,10 @@ is(file_read($path), "stdout\n", "file stdout");
 ok(unlink($path), "unlink");
 
 $status = $stdin = $stdout = $stderr = undef;
-%proc = proc_run(command => [ tp(qw(-stdout -stderr -sleep 3)) ], stdout => \$stdout, stderr => \$stderr, timeout => 0.5);
+%proc = proc_run(command => [ tp(qw(-stdout -stderr -sleep 10)) ], stdout => \$stdout, stderr => \$stderr, timeout => 0.9);
 ok($proc{timeout}, "timeout");
 is($stdout, "", "empty stdout");
-match($stderr, qr/received SIG[A-Z]+ /, "killed stderr");
+match($stderr, qr/ received SIG[A-Z]+ /, "killed stderr");
 
 $path = "test.stdin";
 $test = scalar(localtime(time())) . "\n";
@@ -129,13 +129,13 @@ foreach $test (qw(stop status timeout)) {
     ok(!defined($proc{stderr}{$test}), "proc stderr !$test");
 }
 # terminate the other
-select(undef, undef, undef, 0.5);
+select(undef, undef, undef, 0.9);
 proc_terminate($proc{stderr});
 proc_monitor([ values(%proc) ], timeout => 0);
 ok($proc{stderr}{stop}, "proc stderr stop");
 ok($proc{stderr}{status}, "proc stderr status");
 ok(!defined($proc{stderr}{timeout}), "proc stderr !timeout");
-match($stderr, qr/received SIG[A-Z]+ /, "proc stderr stderr");
+match($stderr, qr/ received SIG[A-Z]+ /, "proc stderr stderr");
 
 __DATA__
 #

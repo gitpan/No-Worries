@@ -2,6 +2,7 @@ Revision history for No-Worries:
 
 ???	???
 	* Portability fixes for process and pid file handling.
+	* Better handle processes dying before all their output could be read.
 
 0.2	Mon Apr 30 2012
 	* Improved documentation, portability and symbol export control.
