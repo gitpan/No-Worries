@@ -16,19 +16,19 @@ $pid = $$;
 
 ok(! -e $pidfile, "clean start");
 
-# pf_check(), pf_touch() and pf_unset() cannot be called on non-existing file
+# pf_check() and pf_touch() cannot be called on non-existing file
 eval  { pf_check($pidfile) };
 ok($@, "pf_check() on non-existing file");
 eval  { pf_touch($pidfile) };
 ok($@, "pf_touch() on non-existing file");
-eval  { pf_unset($pidfile) };
-ok($@, "pf_unset() on non-existing file");
 
-# pf_status() and pf_quit() can be called on non-existing file
+# pf_status(), pf_quit() and pf_unset() can be called on non-existing file
 eval      { pf_status($pidfile) };
 is($@, "", "pf_status() on non-existing file");
 eval      { pf_quit($pidfile, callback => sub {}) };
 is($@, "", "pf_quit() on non-existing file");
+eval      { pf_unset($pidfile) };
+is($@, "", "pf_unset() on non-existing file");
 
 pf_set($pidfile);
 ok(-e $pidfile, "pid_set() file");

@@ -13,8 +13,8 @@
 package No::Worries::Syslog;
 use strict;
 use warnings;
-our $VERSION  = "0.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -79,6 +79,7 @@ sub syslog_sanitize ($) {
     # 1: try to UTF-8 encode it if it has the UTF-8 flag set
     if (Encode::is_utf8($string)) {
 	# we use Encode::FB_DEFAULT to replace invalid characters
+	local $@; # preserve $@!
 	$tmp = Encode::encode("UTF-8", $string, Encode::FB_DEFAULT);
 	unless ($tmp eq $string) {
 	    # encoded is indeed different, use it

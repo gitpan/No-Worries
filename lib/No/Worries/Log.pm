@@ -13,8 +13,8 @@
 package No::Worries::Log;
 use strict;
 use warnings;
-our $VERSION  = "0.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.9 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -246,11 +246,12 @@ sub log_filter ($) {
 
 sub log2std ($) {
     my($info) = @_;
-    my($string, $fh);
+    my($id, $string, $fh);
 
-    $string = sprintf("%s %s %s[%d]: %s\n",
+    $id = $INC{"threads.pm"} ? "$info->{pid}.$info->{tid}": $info->{pid};
+    $string = sprintf("%s %s %s[%s]: %s\n",
 		      $_Level2Char{$info->{level}}, date_stamp($info->{time}),
-		      $info->{program}, $info->{pid}, $info->{message});
+		      $info->{program}, $id, $info->{message});
     $fh = $info->{level} eq _LEVEL_INFO ? *STDOUT : *STDERR;
     $fh->print($string);
     $fh->flush();
@@ -346,6 +347,7 @@ sub _handle ($$) {
     $info->{program} = $ProgramName;
     $info->{host} = $HostName;
     $info->{pid} = $$;
+    $info->{tid} = threads->tid() if $INC{"threads.pm"};
     @list = caller(1);
     $info->{file} = $list[1];
     $info->{line} = $list[2];
@@ -592,6 +594,8 @@ C<debug> or C<trace>
 =item * C<host>: the host name, see $No::Worries::Log::HostName
 
 =item * C<pid>: the process identifier
+
+=item * C<tid>: the thread identifier (in case threads are used)
 
 =item * C<message>: the formatted message string
 

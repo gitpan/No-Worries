@@ -13,8 +13,8 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.3";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.9 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.4";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -169,8 +169,10 @@ sub pf_touch ($) {
 sub pf_unset ($) {
     my($path) = @_;
 
-    unlink($path)
-	or dief("cannot unlink(%s): %s", $path, $!);
+    unless (unlink($path)) {
+	return if $! == ENOENT;
+	dief("cannot unlink(%s): %s", $path, $!);
+    }
 }
 
 #
