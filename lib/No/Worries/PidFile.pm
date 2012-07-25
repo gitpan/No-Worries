@@ -13,14 +13,15 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.4";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.5";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use Fcntl qw(:DEFAULT :flock :seek);
+use No::Worries qw();
 use No::Worries::Die qw(dief);
 use No::Worries::Proc qw(proc_terminate);
 use Params::Validate qw(validate :types);

@@ -1,5 +1,8 @@
 Revision history for No-Worries:
 
+0.5	Wed Jul 25 2012
+	* Added No::Worries::DN to ease Distinguished Names handling.
+
 0.4	Tue Jul  3 2012
 	* Added thread support to No::Worries::Log.
 	* No::Worries::PidFile's pf_unset() now accepts a non-existing path.

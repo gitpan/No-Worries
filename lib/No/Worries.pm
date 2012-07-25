@@ -13,8 +13,8 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "0.4";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.5";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
 
 #
 # global variables
@@ -196,6 +196,16 @@ Here are the relevant sub-modules and what they provide:
 
 =back
 
+=item L<No::Worries::DN> - Distinguished Names handling:
+
+=over
+
+=item * dn_parse(STRING)
+
+=item * dn_string(DN, FORMAT)
+
+=back
+
 =item L<No::Worries::File> - file handling:
 
 =over
@@ -325,6 +335,7 @@ the name of the currently running program (default: derived from $0)
 L<No::Worries::Date>,
 L<No::Worries::Die>,
 L<No::Worries::Dir>,
+L<No::Worries::DN>,
 L<No::Worries::File>,
 L<No::Worries::Log>,
 L<No::Worries::PidFile>,

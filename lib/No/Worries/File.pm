@@ -13,13 +13,14 @@
 package No::Worries::File;
 use strict;
 use warnings;
-our $VERSION  = "0.4";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.9 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.5";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
+use No::Worries qw();
 use No::Worries::Die qw(dief);
 use Params::Validate qw(validate :types);
 

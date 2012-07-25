@@ -8,6 +8,7 @@ lib/No/Worries.pm
 lib/No/Worries/Date.pm
 lib/No/Worries/Die.pm
 lib/No/Worries/Dir.pm
+lib/No/Worries/DN.pm
 lib/No/Worries/File.pm
 lib/No/Worries/Log.pm
 lib/No/Worries/PidFile.pm
@@ -18,6 +19,7 @@ t/0base.t
 t/1date.t
 t/1die.t
 t/1dir.t
+t/1dn.t
 t/1file.t
 t/1log.t
 t/1pidfile.t

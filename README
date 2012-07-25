@@ -21,6 +21,7 @@ perldoc command.
     perldoc No::Worries::Date
     perldoc No::Worries::Die
     perldoc No::Worries::Dir
+    perldoc No::Worries::DN
     perldoc No::Worries::File
     perldoc No::Worries::Log
     perldoc No::Worries::PidFile
