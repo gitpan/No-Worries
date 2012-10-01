@@ -13,8 +13,8 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -185,13 +185,14 @@ my %pf_status_options = (
 );
 
 sub pf_status ($@) {
-    my($path, %option, $fh, @stat, $data, $pid, $status, $message);
+    my($path, %option, $fh, @stat, $data, $pid, $status, $message, $lsb);
 
     $path = shift(@_);
     %option = validate(@_, \%pf_status_options) if @_;
     unless (sysopen($fh, $path, O_RDWR)) {
 	if ($! == ENOENT) {
-	    ($status, $message) = (0, "does not seem to be running (no pid file)");
+	    ($status, $message, $lsb) =
+		(0, "does not seem to be running (no pid file)", 3);
 	    goto done;
 	}
 	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
@@ -200,27 +201,29 @@ sub pf_status ($@) {
 	or dief("cannot stat(%s): %s", $path, $!);
     $data = _read($path, $fh);
     if ($data eq "") {
-	# this can happen while setting the pid file, between open and lock in pf_set()
-	($status, $message) = (0, "does not seem to be running yet (empty pid file)");
+	# this can happen in pf_set(), between open() and lock()
+	($status, $message, $lsb) =
+	    (0, "does not seem to be running yet (empty pid file)", 4);
 	goto done;
     }
     dief("unexpected pid file contents in %s: %s", $path, $data)
 	unless $data =~ /^(\d+)(\s+([a-z]+))?\s*$/s;
     $pid = $1;
     unless (_alive($pid)) {
-	($status, $message) = (0, "(pid $pid) does not seem to be running anymore");
+	($status, $message, $lsb) =
+	    (0, "(pid $pid) does not seem to be running anymore", 1);
 	goto done;
     }
     $data = localtime($stat[ST_MTIME]);
     if ($option{freshness} and $stat[ST_MTIME] < time() - $option{freshness}) {
-	($status, $message) =
-	    (0, "(pid $pid) does not seem to be running anymore since $data");
+	($status, $message, $lsb) =
+	    (0, "(pid $pid) does not seem to be running anymore since $data", 4);
 	goto done;
     }
     # so far so good ;-)
-    ($status, $message) = (1, "(pid $pid) was active on $data");
+    ($status, $message, $lsb) = (1, "(pid $pid) was active on $data", 0);
   done:
-    return($status, $message) if wantarray();
+    return($status, $message, $lsb) if wantarray();
     return($status);
 }
 
@@ -335,9 +338,9 @@ No::Worries::PidFile - pid file handling without worries
 
   # here is how to handle a --status option
   if ($Option{status}) {
-      ($status, $message) = pf_status($pidfile, freshness => 10);
+      ($status, $message, $code) = pf_status($pidfile, freshness => 10);
       printf("myprog %s\n", $message);
-      exit($status ? 0 : 1);
+      exit($code);
   }
 
   # here is how to handle a --quit option
@@ -428,7 +431,8 @@ unset the pid file by removing the given path
 use information from the pid file (including its last modification
 time) to guess the status of the corresponding process, return the
 status (true means that the process seems to be running); in list
-context, also return an informative message; supported options:
+context, also return an informative message and an LSB compatible
+exit code; supported options:
 
 =over
 
@@ -458,6 +462,7 @@ to quit (default: 5)
 
 =head1 SEE ALSO
 
+L<http://refspecs.linuxbase.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html>,
 L<No::Worries>,
 L<No::Worries::Proc>.
 

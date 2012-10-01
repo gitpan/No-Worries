@@ -13,8 +13,8 @@
 package No::Worries::File;
 use strict;
 use warnings;
-our $VERSION  = "0.5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.6";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -182,10 +182,10 @@ No::Worries::File - file handling without worries
   file_read($path, data => \$data);
 
   # write a file
-  file_write($path, $data => "hello world");
+  file_write($path, data => "hello world");
 
   # idem but with data passed by reference
-  file_write($path, $data => \"hello world");
+  file_write($path, data => \"hello world");
 
 =head1 DESCRIPTION
 

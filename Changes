@@ -1,5 +1,10 @@
 Revision history for No-Worries:
 
+0.6	Mon Oct  1 2012
+	* No::Worries::File: fixed documentation typo.
+	* No::Worries::PidFile: pf_status() now also returns an LSB compatible
+	  exit status (as defined in http://goo.gl/vQqaC).
+
 0.5	Wed Jul 25 2012
 	* Added No::Worries::DN to ease Distinguished Names handling.
 
