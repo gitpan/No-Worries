@@ -1,5 +1,11 @@
 Revision history for No-Worries:
 
+0.7	Tue Nov  6 2012
+	* Added No::Worries::String to ease string handling.
+	* Added No::Worries::Export to ease symbol export control.
+	* Moved $HostName from No::Worries::Log to No::Worries.
+	* Cleanup code to please Perl::Critic.
+
 0.6	Mon Oct  1 2012
 	* No::Worries::File: fixed documentation typo.
 	* No::Worries::PidFile: pf_status() now also returns an LSB compatible

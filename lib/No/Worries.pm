@@ -13,66 +13,34 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
+
+#
+# used modules
+#
+
+use Sys::Hostname qw();
+use No::Worries::Export qw(export_control);
 
 #
 # global variables
 #
 
-our($ProgramName);
-
-#
-# trim leading and trailing spaces (private)
-#
-
-sub _sptrim ($) {
-    my($string) = @_;
-
-    $string =~ s/^\s+//;
-    $string =~ s/\s+$//;
-    return($string);
-}
-
-#
-# export control helper (private)
-#
-
-sub _import ($$$@) {
-    my($callpkg, $pkg, $exported, @names) = @_;
-    my($name);
-
-    while (@names) {
-	$name = shift(@names);
-	die("\"$name\" is not exported by the $pkg module\n")
-	    unless $name eq "*" or $exported->{$name};
-	if ($name eq "*") {
-	    # all normal symbols
-	    unshift(@names, grep(!ref($exported->{$_}), keys(%$exported)));
-	} elsif (ref($exported->{$name}) eq "CODE") {
-	    # special
-	    $exported->{$name}->($name);
-	} elsif ($name =~ /^(\w+)$/) {
-	    # function
-	    no strict qw(refs);
-	    *{"${callpkg}::${1}"} = \&{"${pkg}::${1}"};
-	} elsif ($name =~ /^\$(\w+)$/) {
-	    # scalar
-	    no strict qw(refs);
-	    *{"${callpkg}::${1}"} = \${"${pkg}::${1}"};
-	} else {
-	    die("unsupported export by the $pkg module: $name\n");
-	}
-    }
-}
+our($HostName, $ProgramName);
 
 #
 # module initialization
 #
 
-$ProgramName = $0;
+# we set once for all the host name
+$HostName = Sys::Hostname::hostname() || "<unknown-host-name>";
+$HostName = lc($HostName);
+$HostName =~ s/\..+$//;
+
+# we set once for all the program name
+$ProgramName = $0 || "<unknown-program-name>";
 $ProgramName =~ s/^.*\///;
-$ProgramName = _sptrim($ProgramName);
 
 #
 # export control
@@ -82,8 +50,8 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, qw($ProgramName));
-    _import(scalar(caller()), $pkg, \%exported, @_);
+    grep($exported{$_}++, qw($HostName $ProgramName));
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;
@@ -96,8 +64,9 @@ No::Worries - coding without worries
 
 =head1 SYNOPSIS
 
-  use No::Worries qw($ProgramName);
+  use No::Worries qw($HostName $ProgramName);
 
+  printf("host is %s\n", $HostName);
   printf("program is %s\n", $ProgramName);
 
 =head1 DESCRIPTION
@@ -105,9 +74,9 @@ No::Worries - coding without worries
 This module and its sub-modules ease coding by providing consistent
 convenient functions to perform frequently used programming tasks.
 
-This module also exposes the $ProgramName variable that represents
-what the modules think the program name is. This variable can be
-changed if needed.
+This module also exposes the $HostName and $ProgramName variables that
+represent what the sub-modules think the host name or program name is.
+These variables can be changed, if needed.
 
 =head1 PROGRAMMING STYLE
 
@@ -206,6 +175,14 @@ Here are the relevant sub-modules and what they provide:
 
 =back
 
+=item L<No::Worries::Export> - export control:
+
+=over
+
+=item * export_control(CALLERPKG, PKG, EXPORT, NAMES...)
+
+=back
+
 =item L<No::Worries::File> - file handling:
 
 =over
@@ -286,6 +263,16 @@ Here are the relevant sub-modules and what they provide:
 
 =back
 
+=item L<No::Worries::String> - string handling:
+
+=over
+
+=item * string_escape(STRING)
+
+=item * string_trim(STRING)
+
+=back
+
 =item L<No::Worries::Syslog> - syslog handling:
 
 =over
@@ -324,9 +311,15 @@ This module uses the following global variables (that can all be imported):
 
 =over
 
+=item $HostName
+
+the name of the host this program runs on
+(default: derived from L<Sys::Hostname>)
+
 =item $ProgramName
 
-the name of the currently running program (default: derived from $0)
+the name of the program currently running
+(default: derived from $0)
 
 =back
 
@@ -336,10 +329,12 @@ L<No::Worries::Date>,
 L<No::Worries::Die>,
 L<No::Worries::Dir>,
 L<No::Worries::DN>,
+L<No::Worries::Export>,
 L<No::Worries::File>,
 L<No::Worries::Log>,
 L<No::Worries::PidFile>,
 L<No::Worries::Proc>,
+L<No::Worries::String>,
 L<No::Worries::Syslog>,
 L<No::Worries::Warn>,
 L<Params::Validate>.

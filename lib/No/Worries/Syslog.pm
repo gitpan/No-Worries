@@ -13,17 +13,19 @@
 package No::Worries::Syslog;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
+use 5.005; # need the four-argument form of substr()
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use Encode qw();
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use No::Worries::Log qw();
+use No::Worries::String qw(string_trim);
 use Params::Validate qw(validate :types);
 use Sys::Syslog qw(openlog closelog syslog);
 use URI::Escape qw(uri_escape);
@@ -40,7 +42,7 @@ our($MaximumLength, $SplitLines);
 
 my %syslog_open_options = (
     ident    => { optional => 1, type => SCALAR, regex => qr/^[\w\-\.\/]+$/ },
-    option   => { optional => 1, type => SCALAR, regex => qr/^[a-z]+(,[a-z]+)*$/ },
+    option   => { optional => 1, type => SCALAR, regex => qr/^\w+(,\w+)*$/ },
     facility => { optional => 1, type => SCALAR, regex => qr/^\w+$/ },
 );
 
@@ -78,14 +80,14 @@ sub syslog_sanitize ($) {
     $flags = "";
     # 1: try to UTF-8 encode it if it has the UTF-8 flag set
     if (Encode::is_utf8($string)) {
-	# we use Encode::FB_DEFAULT to replace invalid characters
-	local $@; # preserve $@!
-	$tmp = Encode::encode("UTF-8", $string, Encode::FB_DEFAULT);
-	unless ($tmp eq $string) {
-	    # encoded is indeed different, use it
-	    $string = $tmp;
-	    $flags .= "U";
-	}
+        # we use Encode::FB_DEFAULT to replace invalid characters
+        local $@ = ""; # preserve $@!
+        $tmp = Encode::encode("UTF-8", $string, Encode::FB_DEFAULT);
+        unless ($tmp eq $string) {
+            # encoded is indeed different, use it
+            $string = $tmp;
+            $flags .= "U";
+        }
     }
     # 2: silently trim trailing spaces and replace tabs
     $string =~ s/\s+$//;
@@ -93,14 +95,15 @@ sub syslog_sanitize ($) {
     # 3: try to URI escape non-printable characters plus # % \ `
     $tmp = uri_escape($string, q{\x00-\x1f\x7f-\xff\x23\x25\x5c\x60});
     unless ($tmp eq $string) {
-	# escaped is indeed different, use it
-	$string = $tmp;
-	$flags .= "E";
+        # escaped is indeed different, use it
+        $string = $tmp;
+        $flags .= "E";
     }
     # 4: truncate if it is too long, taking into acount the possible flags
-    if (length($string) > $MaximumLength - 4) {
-	substr($string, $MaximumLength - 4) = "";
-	$flags .= "T";
+    $tmp = length($string) - $MaximumLength + 4;
+    if ($tmp > 0) {
+        substr($string, $MaximumLength - 4, $tmp, "");
+        $flags .= "T";
     }
     # 5: append the flags to keep track of what happened to the string
     $string .= "#$flags" if $flags;
@@ -114,22 +117,24 @@ sub syslog_sanitize ($) {
 
 sub _syslog_any ($$@) {
     my($priority, $prefix, $message, @arguments) = @_;
-    my($separator, $line);
+    my($separator, $string);
 
     $message = sprintf($message, @arguments) if @arguments;
-    $message = No::Worries::_sptrim($message);
+    $message = string_trim($message);
     $separator = " ";
     if ($SplitLines and $message =~ /\n/) {
-	# multiple syslog entries
-	foreach $line (split(/\n/, $message)) {
-	    eval { syslog($priority, syslog_sanitize("[$prefix]$separator$line")) };
-	    dief("cannot syslog(): %s", $@) if $@;
-	    $separator = "+";
-	}
+        # multiple syslog entries
+        foreach my $line (split(/\n/, $message)) {
+            $string = syslog_sanitize("[$prefix]$separator$line");
+            eval { syslog($priority, $string) };
+            dief("cannot syslog(): %s", $@) if $@;
+            $separator = "+";
+        }
     } else {
-	# one syslog entry
-	eval { syslog($priority, syslog_sanitize("[$prefix]$separator$message")) };
-	dief("cannot syslog(): %s", $@) if $@;
+        # one syslog entry
+        $string = syslog_sanitize("[$prefix]$separator$message");
+        eval { syslog($priority, $string) };
+        dief("cannot syslog(): %s", $@) if $@;
     }
 }
 
@@ -146,13 +151,13 @@ sub log2syslog ($) {
     my($info) = @_;
 
     if ($info->{level} eq "error") {
-	syslog_error($info->{message});
+        syslog_error($info->{message});
     } elsif ($info->{level} eq "warning") {
-	syslog_warning($info->{message});
+        syslog_warning($info->{message});
     } elsif ($info->{level} eq "info") {
-	syslog_info($info->{message});
+        syslog_info($info->{message});
     } else {
-	syslog_debug($info->{message}); # for debug _and_ trace
+        syslog_debug($info->{message}); # for debug _and_ trace
     }
     return(1);
 }
@@ -172,9 +177,10 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, map("syslog_$_", qw(open close sanitize error warning info debug)));
-    $exported{log2syslog} = sub { $No::Worries::Log::Handler = \&log2syslog };
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    grep($exported{$_}++,
+         map("syslog_$_", qw(open close sanitize error warning info debug)));
+    $exported{"log2syslog"} = sub { $No::Worries::Log::Handler = \&log2syslog };
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

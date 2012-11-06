@@ -13,8 +13,8 @@
 package No::Worries::Warn;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.20 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -22,6 +22,8 @@ our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
 
 use Carp qw(shortmess longmess);
 use No::Worries qw($ProgramName);
+use No::Worries::Export qw(export_control);
+use No::Worries::String qw(string_trim);
 
 #
 # global variables
@@ -37,7 +39,7 @@ sub warnf ($@) {
     my($message, @arguments) = @_;
 
     $message = sprintf($message, @arguments) if @arguments;
-    warn(No::Worries::_sptrim($message) . "\n");
+    warn(string_trim($message) . "\n");
 }
 
 #
@@ -47,26 +49,31 @@ sub warnf ($@) {
 sub handler ($) {
     my($message) = @_;
 
-    $message = No::Worries::_sptrim($message);
+    $message = string_trim($message);
     if ($ENV{NO_WORRIES}) {
-	if ($ENV{NO_WORRIES} =~ /\b(cluck)\b/) {
-	    $message = longmess($message);
-	    goto done;
-	}
-	if ($ENV{NO_WORRIES} =~ /\b(carp)\b/) {
-	    $message = shortmess($message);
-	    goto done;
-	}
+        if ($ENV{NO_WORRIES} =~ /\b(cluck)\b/) {
+            $message = longmess($message);
+            goto done;
+        }
+        if ($ENV{NO_WORRIES} =~ /\b(carp)\b/) {
+            $message = shortmess($message);
+            goto done;
+        }
     }
     $message .= "\n";
   done:
     if ($Syslog) {
-	unless ($INC{"No/Worries/Syslog.pm"}) {
-	    eval { require No::Worries::Syslog };
-	    warn($@) if $@;
-	}
-	eval { No::Worries::Syslog::syslog_warning($message) };
-	warn($@) if $@;
+        unless (defined(&No::Worries::Syslog::syslog_warning)) {
+            eval { require No::Worries::Syslog };
+            if ($@) {
+                warn($@);
+                $Syslog = 0;
+            }
+        }
+        if ($Syslog) {
+            eval { No::Worries::Syslog::syslog_warning($message) };
+            warn($@) if $@;
+        }
     }
     warn($Prefix . " " . $message);
 }
@@ -90,9 +97,9 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, qw(warnf));
-    $exported{handler} = sub { $SIG{__WARN__} = \&handler };
-    $exported{syslog} = sub { $Syslog = 1 };
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    $exported{"handler"} = sub { $SIG{__WARN__} = \&handler };
+    $exported{"syslog"} = sub { $Syslog = 1 };
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;
@@ -119,7 +126,7 @@ No::Worries::Warn - warning handling without worries
 
   $ NO_WORRIES=cluck ./myprog
   myprog: cannot open(foo): No such file or directory at myprog line 16
-	main::test() called at ./myprog line 19
+      main::test() called at ./myprog line 19
 
 =head1 DESCRIPTION
 

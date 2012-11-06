@@ -13,16 +13,16 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use Fcntl qw(:DEFAULT :flock :seek);
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use No::Worries::Proc qw(proc_terminate);
 use Params::Validate qw(validate :types);
 use POSIX qw(:errno_h);
@@ -43,22 +43,22 @@ sub _read ($$;$) {
     my($data, $done);
 
     flock($fh, LOCK_EX)
-	or dief("cannot flock(%s, LOCK_EX): %s", $path, $!);
+        or dief("cannot flock(%s, LOCK_EX): %s", $path, $!);
     sysseek($fh, 0, SEEK_SET)
-	or dief("cannot sysseek(%s, 0, SEEK_SET): %s", $path, $!);
+        or dief("cannot sysseek(%s, 0, SEEK_SET): %s", $path, $!);
     $data = "";
     $done = -1;
     while ($done) {
-	$done = sysread($fh, $data, 16, length($data));
-	dief("cannot sysread(%s, %d): %s", $path, 16, $!)
-	    unless defined($done);
+        $done = sysread($fh, $data, 16, length($data));
+        dief("cannot sysread(%s, %d): %s", $path, 16, $!)
+            unless defined($done);
     }
     if ($noclose) {
-	flock($fh, LOCK_UN)
-	    or dief("cannot flock(%s, LOCK_UN): %s", $path, $!);
+        flock($fh, LOCK_UN)
+            or dief("cannot flock(%s, LOCK_UN): %s", $path, $!);
     } else {
-	close($fh)
-	    or dief("cannot close(%s): %s", $path, $!);
+        close($fh)
+            or dief("cannot close(%s): %s", $path, $!);
     }
     return($data);
 }
@@ -72,22 +72,22 @@ sub _write ($$$) {
     my($length, $offset, $done);
 
     flock($fh, LOCK_EX)
-	or dief("cannot flock(%s, LOCK_EX): %s", $path, $!);
+        or dief("cannot flock(%s, LOCK_EX): %s", $path, $!);
     sysseek($fh, 0, SEEK_SET)
-	or dief("cannot sysseek(%s, 0, SEEK_SET): %s", $path, $!);
+        or dief("cannot sysseek(%s, 0, SEEK_SET): %s", $path, $!);
     truncate($fh, 0)
-	or dief("cannot truncate(%s, 0): %s", $path, $!);
+        or dief("cannot truncate(%s, 0): %s", $path, $!);
     $length = length($data);
     $offset = 0;
     while ($length) {
-	$done = syswrite($fh, $data, $length, $offset);
-	dief("cannot syswrite(%s, %d): %s", $path, $length, $!)
-	    unless defined($done);
-	$length -= $done;
-	$offset += $done;
+        $done = syswrite($fh, $data, $length, $offset);
+        dief("cannot syswrite(%s, %d): %s", $path, $length, $!)
+            unless defined($done);
+        $length -= $done;
+        $offset += $done;
     }
     close($fh)
-	or dief("cannot close(%s): %s", $path, $!);
+        or dief("cannot close(%s): %s", $path, $!);
 }
 
 #
@@ -100,6 +100,37 @@ sub _alive ($) {
     return(1) if kill(0, $pid);
     return(0) if $! == ESRCH;
     dief("cannot kill(0, %d): %s", $pid, $!);
+}
+
+#
+# kill a process
+#
+
+sub _kill ($$$%) {
+    my($path, $fh, $pid, %option) = @_;
+    my($maxtime);
+
+    # gently
+    $option{callback}->("(pid $pid) is being told to quit...");
+    _write($path, $fh, "$pid\nquit\n");
+    $maxtime = Time::HiRes::time() + $option{linger};
+    while (1) {
+        last unless _alive($pid);
+        last if Time::HiRes::time() > $maxtime;
+        Time::HiRes::sleep(0.1);
+    }
+    if (_alive($pid)) {
+        # forcedly
+        $option{callback}->("(pid $pid) is still running, killing it now...");
+        if ($option{kill}) {
+            proc_terminate($pid, kill => $option{kill});
+        } else {
+            proc_terminate($pid);
+        }
+        $option{callback}->("(pid $pid) has been successfully killed");
+    } else {
+        $option{callback}->("does not seem to be running anymore");
+    }
 }
 
 #
@@ -117,7 +148,7 @@ sub pf_set ($@) {
     %option = validate(@_, \%pf_set_options) if @_;
     $option{pid} ||= $$;
     sysopen($fh, $path, O_WRONLY|O_CREAT|O_EXCL)
-	or dief("cannot sysopen(%s, O_WRONLY|O_CREAT|O_EXCL): %s", $path, $!);
+        or dief("cannot sysopen(%s, O_WRONLY|O_CREAT|O_EXCL): %s", $path, $!);
     _write($path, $fh, "$option{pid}\n");
 }
 
@@ -136,17 +167,17 @@ sub pf_check ($@) {
     %option = validate(@_, \%pf_check_options) if @_;
     $option{pid} ||= $$;
     sysopen($fh, $path, O_RDWR)
-	or dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
+        or dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     $data = _read($path, $fh);
     if ($data =~ /^(\d+)\s*$/s) {
-	($pid, $action) = ($1, "");
+        ($pid, $action) = ($1, "");
     } elsif ($data =~ /^(\d+)\s+([a-z]+)\s*$/s) {
-	($pid, $action) = ($1, $2);
+        ($pid, $action) = ($1, $2);
     } else {
-	dief("unexpected pid file contents in %s: %s", $path, $data)
+        dief("unexpected pid file contents in %s: %s", $path, $data)
     }
     dief("pid file %s has been taken over by pid %d!", $path, $pid)
-	unless $pid == $option{pid};
+        unless $pid == $option{pid};
     return($action);
 }
 
@@ -160,7 +191,7 @@ sub pf_touch ($) {
 
     $now = time();
     utime($now, $now, $path)
-	or dief("cannot utime(%d, %d, %s): %s", $now, $now, $path, $!);
+        or dief("cannot utime(%d, %d, %s): %s", $now, $now, $path, $!);
 }
 
 #
@@ -171,8 +202,8 @@ sub pf_unset ($) {
     my($path) = @_;
 
     unless (unlink($path)) {
-	return if $! == ENOENT;
-	dief("cannot unlink(%s): %s", $path, $!);
+        return if $! == ENOENT;
+        dief("cannot unlink(%s): %s", $path, $!);
     }
 }
 
@@ -189,36 +220,39 @@ sub pf_status ($@) {
 
     $path = shift(@_);
     %option = validate(@_, \%pf_status_options) if @_;
+    $status = 0;
     unless (sysopen($fh, $path, O_RDWR)) {
-	if ($! == ENOENT) {
-	    ($status, $message, $lsb) =
-		(0, "does not seem to be running (no pid file)", 3);
-	    goto done;
-	}
-	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
+        if ($! == ENOENT) {
+            ($message, $lsb) =
+                ("does not seem to be running (no pid file)", 3);
+            goto done;
+        }
+        dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     }
     @stat = stat($fh)
-	or dief("cannot stat(%s): %s", $path, $!);
+        or dief("cannot stat(%s): %s", $path, $!);
     $data = _read($path, $fh);
     if ($data eq "") {
-	# this can happen in pf_set(), between open() and lock()
-	($status, $message, $lsb) =
-	    (0, "does not seem to be running yet (empty pid file)", 4);
-	goto done;
+        # this can happen in pf_set(), between open() and lock()
+        ($message, $lsb) =
+            ("does not seem to be running yet (empty pid file)", 4);
+        goto done;
     }
-    dief("unexpected pid file contents in %s: %s", $path, $data)
-	unless $data =~ /^(\d+)(\s+([a-z]+))?\s*$/s;
-    $pid = $1;
+    if ($data =~ /^(\d+)(\s+([a-z]+))?\s*$/s) {
+        $pid = $1;
+    } else {
+        dief("unexpected pid file contents in %s: %s", $path, $data);
+    }
     unless (_alive($pid)) {
-	($status, $message, $lsb) =
-	    (0, "(pid $pid) does not seem to be running anymore", 1);
-	goto done;
+        ($message, $lsb) =
+            ("(pid $pid) does not seem to be running anymore", 1);
+        goto done;
     }
     $data = localtime($stat[ST_MTIME]);
     if ($option{freshness} and $stat[ST_MTIME] < time() - $option{freshness}) {
-	($status, $message, $lsb) =
-	    (0, "(pid $pid) does not seem to be running anymore since $data", 4);
-	goto done;
+        ($message, $lsb) =
+            ("(pid $pid) does not seem to be running anymore since $data", 4);
+        goto done;
     }
     # so far so good ;-)
     ($status, $message, $lsb) = (1, "(pid $pid) was active on $data", 0);
@@ -238,66 +272,50 @@ my %pf_quit_options = (
 );
 
 sub pf_quit ($@) {
-    my($path, %option, $fh, $data, $pid, $maxtime);
+    my($path, %option, $fh, $data, $pid);
 
     $path = shift(@_);
     %option = validate(@_, \%pf_quit_options) if @_;
     $option{callback} ||= sub { printf("%s\n", $_[0]) };
     $option{linger} ||= 5;
     unless (sysopen($fh, $path, O_RDWR)) {
-	if ($! == ENOENT) {
-	    $option{callback}->("does not seem to be running (no pid file)");
-	    return;
-	}
-	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
+        if ($! == ENOENT) {
+            $option{callback}->("does not seem to be running (no pid file)");
+            return;
+        }
+        dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     }
     $data = _read($path, $fh, 1);
     if ($data eq "") {
-	# this can happen while setting the pid file, between open and lock in pf_set()
-	# but what can we do? we wait a bit, try again and complain if itis still empty
-	sleep(1);
-	$data = _read($path, $fh, 1);
+        # this can happen while setting the pid file, between open and lock in pf_set()
+        # but what can we do? we wait a bit, try again and complain if itis still empty
+        sleep(1);
+        $data = _read($path, $fh, 1);
     }
-    dief("unexpected pid file contents in %s: %s", $path, $data)
-	unless $data =~ /^(\d+)(\s+([a-z]+))?\s*$/s;
-    $pid = $1;
-    # gently
-    $option{callback}->("(pid $pid) is being told to quit...");
-    _write($path, $fh, "$pid\nquit\n");
-    $maxtime = Time::HiRes::time() + $option{linger};
-    while (1) {
-	last unless _alive($pid);
-	last if Time::HiRes::time() > $maxtime;
-	select(undef, undef, undef, 0.1);
-    }
-    if (_alive($pid)) {
-	# forcedly
-	$option{callback}->("(pid $pid) is still running, killing it now...");
-	if ($option{kill}) {
-	    proc_terminate($pid, kill => $option{kill});
-	} else {
-	    proc_terminate($pid);
-	}
-	$option{callback}->("(pid $pid) has been successfully killed");
+    if ($data =~ /^(\d+)(\s+([a-z]+))?\s*$/s) {
+        $pid = $1;
     } else {
-	$option{callback}->("does not seem to be running anymore");
+        dief("unexpected pid file contents in %s: %s", $path, $data);
     }
+    _kill($path, $fh, $pid, %option);
     # in any case, we make sure that _this_ pid file does not exist anymore
     # we have to be extra careful to make sure it is the same pid file
     unless (sysopen($fh, $path, O_RDWR)) {
-	return if $! == ENOENT;
-	dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
+        return if $! == ENOENT;
+        dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
     }
     $data = _read($path, $fh);
     return if $data eq "";
-    dief("unexpected pid file contents in %s: %s", $path, $data)
-	unless $data =~ /^(\d+)(\s+([a-z]+))?\s*$/s;
-    return unless $1 == $pid;
-    # same pid so assume same pid file...
+    if ($data =~ /^(\d+)(\s+([a-z]+))?\s*$/s) {
+        return unless $1 == $pid;
+    } else {
+        dief("unexpected pid file contents in %s: %s", $path, $data);
+    }
+    # same pid so assume same pid file... remove it
     $option{callback}->("removing stale pid file: $path");
     unless (unlink($path)) {
-	# take into account a potential race condition...
-	dief("cannot unlink(%s): %s", $path, $!) unless $! == ENOENT;
+        # take into account a potential race condition...
+        dief("cannot unlink(%s): %s", $path, $!) unless $! == ENOENT;
     }
 }
 
@@ -310,7 +328,7 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, map("pf_$_", qw(set check touch unset status quit)));
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

@@ -13,15 +13,15 @@
 package No::Worries::DN;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.2 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate_pos :types);
 
 #
@@ -37,9 +37,9 @@ use constant FORMAT_OPENSSL => "openssl";
 #
 
 our(
-    %_Map,			# map of known attribute types
-    $_TypeRE,			# regexp for a valid attribute type
-    $_ValueRE,			# regexp for a valid attribute value
+    %_Map,        # map of known attribute types
+    $_TypeRE,     # regexp for a valid attribute type
+    $_ValueRE,    # regexp for a valid attribute value
 );
 
 foreach my $type (qw(Email emailAddress EMAILADDRESS)) {
@@ -73,31 +73,31 @@ $_ValueRE = "[" .
 
 sub dn_parse ($) {
     my($string) = @_;
-    my($sep, @list, @dn, $attr);
+    my($sep, @list, @dn);
 
     validate_pos(@_, { type => SCALAR });
     if ($string =~ m/^(\/[a-z]+=[^=]*){3,}$/i) {
-	$sep = "/";
+        $sep = "/";
     } elsif ($string =~ m/^[a-z]+=[^=]*(,[a-z]+=[^=]*){2,}$/i) {
-	$sep = ",";
+        $sep = ",";
     } elsif ($string =~ m/^[a-z]+=[^=]*(, [a-z]+=[^=]*){2,}$/i) {
-	$sep = ", ";
+        $sep = ", ";
     } else {
-	dief("unexpected DN: %s", $string);
+        dief("unexpected DN: %s", $string);
     }
     @list = split(/$sep/, $string);
     shift(@list) if $sep eq "/";
     @dn = ();
-    foreach $attr (@list) {
-	if ($attr =~ /^($_TypeRE)=($_ValueRE)$/) {
-	    # type=value
-	    push(@dn, "$_Map{$1}=$2");
-	} elsif (@dn and $attr =~ /^($_ValueRE)$/) {
-	    # value only, assumed to come from previous attribute
-	    $dn[$#dn] .= $sep . $attr;
-	} else {
-	    dief("invalid DN: %s", $string);
-	}
+    foreach my $attr (@list) {
+        if ($attr =~ /^($_TypeRE)=($_ValueRE)$/) {
+            # type=value
+            push(@dn, "$_Map{$1}=$2");
+        } elsif (@dn and $attr =~ /^($_ValueRE)$/) {
+            # value only, assumed to come from previous attribute
+            $dn[-1] .= $sep . $attr;
+        } else {
+            dief("invalid DN: %s", $string);
+        }
     }
     @dn = reverse(@dn) if $sep eq "/";
     return(\@dn);
@@ -111,9 +111,9 @@ sub dn_string ($$) {
     my($dn, $format) = @_;
 
     validate_pos(@_, { type => ARRAYREF }, { type => SCALAR });
-    return(join(",", @$dn)) if $format eq FORMAT_RFC2253;
-    return(join(", ", @$dn)) if $format eq FORMAT_JAVA;
-    return(join("/", "", reverse(@$dn))) if $format eq FORMAT_OPENSSL;
+    return(join(",", @{ $dn })) if $format eq FORMAT_RFC2253;
+    return(join(", ", @{ $dn })) if $format eq FORMAT_JAVA;
+    return(join("/", "", reverse(@{ $dn }))) if $format eq FORMAT_OPENSSL;
     dief("unsupported DN format: %s", $format);
 }
 
@@ -126,7 +126,7 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, map("dn_$_", qw(parse string)));
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

@@ -13,15 +13,15 @@
 package No::Worries::Dir;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate :types);
 
 #
@@ -44,9 +44,11 @@ sub _mkdir ($$);
 sub _mkdir ($$) {
     my($path, $mode) = @_;
 
-    _mkdir($1, $mode) if $path =~ m{^(.+)/[^/]+$} and not -d $1;
+    if ($path =~ m{^(.+)/[^/]+$} and not -d $1) {
+        _mkdir($1, $mode);
+    }
     mkdir($path, $mode)
-	or dief("cannot mkdir(%s, %04o): %s", $path, $mode, $!);
+        or dief("cannot mkdir(%s, %04o): %s", $path, $mode, $!);
 }
 
 # public interface
@@ -60,7 +62,7 @@ sub dir_ensure ($@) {
 
     $path = shift(@_);
     %option = validate(@_, \%dir_ensure_options) if @_;
-    $option{mode} = 0777 unless defined($option{mode});
+    $option{mode} = oct(777) unless defined($option{mode});
     $path =~ s{/+$}{};
     _mkdir($path, $option{mode}) unless $path eq "" or -d $path;
 }
@@ -78,9 +80,9 @@ sub dir_make ($@) {
 
     $path = shift(@_);
     %option = validate(@_, \%dir_make_options) if @_;
-    $option{mode} = 0777 unless defined($option{mode});
+    $option{mode} = oct(777) unless defined($option{mode});
     mkdir($path, $option{mode})
-	or dief("cannot mkdir(%s, %04o): %s", $path, $option{mode}, $!);
+        or dief("cannot mkdir(%s, %04o): %s", $path, $option{mode}, $!);
 }
 
 #
@@ -132,8 +134,9 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, map("dir_$_", qw(change ensure make parent read remove)));
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    grep($exported{$_}++,
+         map("dir_$_", qw(change ensure make parent read remove)));
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;
@@ -153,10 +156,10 @@ No::Worries::Dir - directory handling without worries
   dir_change("/tmp");
 
   # make sure a directory exists (not an error if it exists already)
-  dir_ensure("/tmp/some/path", mode => 0770);
+  dir_ensure("/tmp/some/path", mode => oct(770));
 
   # make a directory (an error if it exists already)
-  dir_make("/tmp/some/path", mode => 0770);
+  dir_make("/tmp/some/path", mode => oct(770));
 
   # find out the parent directory of some path
   $parent = dir_parent($path);
@@ -194,7 +197,7 @@ make sure the given path is an existing directory, creating it
 
 =over
 
-=item * C<mode>: numerical mode to use for mkdir() (default: 0777)
+=item * C<mode>: numerical mode to use for mkdir() (default: oct(777))
 
 =back
 
@@ -205,7 +208,7 @@ mkdir(); supported options:
 
 =over
 
-=item * C<mode>: numerical mode to use for mkdir() (default: 0777)
+=item * C<mode>: numerical mode to use for mkdir() (default: oct(777))
 
 =back
 

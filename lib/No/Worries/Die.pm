@@ -13,8 +13,8 @@
 package No::Worries::Die;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -22,6 +22,8 @@ our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 use Carp qw(shortmess longmess);
 use No::Worries qw($ProgramName);
+use No::Worries::Export qw(export_control);
+use No::Worries::String qw(string_trim);
 
 #
 # global variables
@@ -37,7 +39,7 @@ sub dief ($@) {
     my($message, @arguments) = @_;
 
     $message = sprintf($message, @arguments) if @arguments;
-    die(No::Worries::_sptrim($message) . "\n");
+    die(string_trim($message) . "\n");
 }
 
 #
@@ -50,26 +52,31 @@ sub handler ($) {
     # do nothing if called parsing a module/eval or executing an eval
     return if not defined($^S) or $^S;
     # handle a "normal" error
-    $message = No::Worries::_sptrim($message);
+    $message = string_trim($message);
     if ($ENV{NO_WORRIES}) {
-	if ($ENV{NO_WORRIES} =~ /\b(confess)\b/) {
-	    $message = longmess($message);
-	    goto done;
-	}
-	if ($ENV{NO_WORRIES} =~ /\b(croak)\b/) {
-	    $message = shortmess($message);
-	    goto done;
-	}
+        if ($ENV{NO_WORRIES} =~ /\b(confess)\b/) {
+            $message = longmess($message);
+            goto done;
+        }
+        if ($ENV{NO_WORRIES} =~ /\b(croak)\b/) {
+            $message = shortmess($message);
+            goto done;
+        }
     }
     $message .= "\n";
   done:
     if ($Syslog) {
-	unless ($INC{"No/Worries/Syslog.pm"}) {
-	    eval { require No::Worries::Syslog };
-	    warn($@) if $@;
-	}
-	eval { No::Worries::Syslog::syslog_error($message) };
-	warn($@) if $@;
+        unless (defined(&No::Worries::Syslog::syslog_error)) {
+            eval { require No::Worries::Syslog };
+            if ($@) {
+                warn($@);
+                $Syslog = 0;
+            }
+        }
+        if ($Syslog) {
+            eval { No::Worries::Syslog::syslog_error($message) };
+            warn($@) if $@;
+        }
     }
     die($Prefix . " " . $message);
 }
@@ -93,9 +100,9 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, qw(dief));
-    $exported{handler} = sub { $SIG{__DIE__} = \&handler };
-    $exported{syslog} = sub { $Syslog = 1 };
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    $exported{"handler"} = sub { $SIG{__DIE__} = \&handler };
+    $exported{"syslog"} = sub { $Syslog = 1 };
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;
@@ -118,7 +125,7 @@ No::Worries::Die - error handling without worries
 
   $ NO_WORRIES=confess ./myprog
   myprog: cannot open(foo): No such file or directory at myprog line 16
-	main::test() called at ./myprog line 19
+      main::test() called at ./myprog line 19
 
 =head1 DESCRIPTION
 

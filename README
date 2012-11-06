@@ -22,10 +22,12 @@ perldoc command.
     perldoc No::Worries::Die
     perldoc No::Worries::Dir
     perldoc No::Worries::DN
+    perldoc No::Worries::Export
     perldoc No::Worries::File
     perldoc No::Worries::Log
     perldoc No::Worries::PidFile
     perldoc No::Worries::Proc
+    perldoc No::Worries::String
     perldoc No::Worries::Syslog
     perldoc No::Worries::Warn
 

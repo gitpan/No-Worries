@@ -13,15 +13,15 @@
 package No::Worries::File;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.14 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate :types);
 
 #
@@ -38,17 +38,51 @@ sub _binmode ($$$) {
     my($path, $fh, $mode) = @_;
 
     if ($mode eq "utf8") {
-	binmode($fh, ":encoding(utf8)")
-	    or dief("cannot binmode(%s, :encoding(utf8)): %s", $path, $!);
+        binmode($fh, ":encoding(utf8)")
+            or dief("cannot binmode(%s, :encoding(utf8)): %s", $path, $!);
     } else {
-	binmode($fh)
-	    or dief("cannot binmode(%s): %s", $path, $!);
+        binmode($fh)
+            or dief("cannot binmode(%s): %s", $path, $!);
     }
 }
 
 #
 # read from a file
 #
+
+sub _file_read_io ($$$$) {
+    my($path, $fh, $data, $bufsize) = @_;
+    my($done, $ref, $result);
+
+    $done = -1;
+    $ref = $data ? ref($data) : "";
+    if ($ref eq "SCALAR") {
+        ${ $data } = "";
+        while ($done) {
+            $done = sysread($fh, ${ $data }, $bufsize, length(${ $data }));
+            dief("cannot sysread(%s): %s", $path, $!)
+                unless defined($done);
+        }
+        $result = $data;
+    } elsif ($ref eq "CODE") {
+        while ($done) {
+            $result = "";
+            $done = sysread($fh, $result, $bufsize);
+            dief("cannot sysread(%s): %s", $path, $!)
+                unless defined($done);
+            $data->($result) if $done;
+        }
+        $result = $data->("");
+    } else {
+        $result = "";
+        while ($done) {
+            $done = sysread($fh, $result, $bufsize, length($result));
+            dief("cannot sysread(%s): %s", $path, $!)
+                unless defined($done);
+        }
+    }
+    return(\$result);
+}
 
 my %file_read_options = (
     binmode => { optional => 1, type => SCALAR, regex => qr/^(binary|utf8)$/ },
@@ -57,44 +91,62 @@ my %file_read_options = (
 );
 
 sub file_read ($@) {
-    my($path, %option, $fh, $ref, $contents, $done);
+    my($path, %option, $fh, $result);
 
     $path = shift(@_);
     %option = validate(@_, \%file_read_options) if @_;
     $option{bufsize} ||= $DefaultBufSize;
     open($fh, "<", $path) or dief("cannot open(%s): %s", $path, $!);
     _binmode($path, $fh, $option{binmode}) if $option{binmode};
-    $done = -1;
-    $ref = $option{data} ? ref($option{data}) : "";
-    if ($ref eq "SCALAR") {
-	${$option{data}} = "";
-	while ($done) {
-	    $done = sysread($fh, ${$option{data}}, $option{bufsize},
-			    length(${$option{data}}));
-	    dief("cannot sysread(%s): %s", $path, $!) unless defined($done);
-	}
-	$contents = $option{data};
-    } elsif ($ref eq "CODE") {
-	while ($done) {
-	    $done = sysread($fh, $contents, $option{bufsize});
-	    dief("cannot sysread(%s): %s", $path, $!) unless defined($done);
-	    $option{data}->($contents) if $done;
-	}
-	$contents = $option{data}->("");
-    } else {
-	$contents = "";
-	while ($done) {
-	    $done = sysread($fh, $contents, $option{bufsize}, length($contents));
-	    dief("cannot sysread(%s): %s", $path, $!) unless defined($done);
-	}
-    }
+    $result = _file_read_io($path, $fh, $option{data}, $option{bufsize});
     close($fh) or dief("cannot close(%s): %s", $path, $!);
-    return($contents);
+    return(${ $result });
 }
 
 #
 # write to a file
 #
+
+sub _file_write_io ($$$$) {
+    my($path, $fh, $data, $bufsize) = @_;
+    my($ref, $offset, $length, $done, $chunk);
+
+    $offset = 0;
+    $ref = ref($data);
+    if ($ref eq "SCALAR") {
+        $length = length(${ $data });
+        while ($length) {
+            $done = syswrite($fh, ${ $data }, $bufsize, $offset);
+            dief("cannot syswrite(%s): %s", $path, $!)
+                unless defined($done);
+            $length -= $done;
+            $offset += $done;
+        }
+    } elsif ($ref eq "CODE") {
+        while (1) {
+            $chunk = $data->();
+            $length = length($chunk);
+            last unless $length;
+            $offset = 0;
+            while ($length) {
+                $done = syswrite($fh, $chunk, $bufsize, $offset);
+                dief("cannot syswrite(%s): %s", $path, $!)
+                    unless defined($done);
+                $length -= $done;
+                $offset += $done;
+            }
+        }
+    } else {
+        $length = length($data);
+        while ($length) {
+            $done = syswrite($fh, $data, $bufsize, $offset);
+            dief("cannot syswrite(%s): %s", $path, $!)
+                unless defined($done);
+            $length -= $done;
+            $offset += $done;
+        }
+    }
+}
 
 my %file_write_options = (
     binmode => { optional => 1, type => SCALAR, regex => qr/^(binary|utf8)$/ },
@@ -103,45 +155,14 @@ my %file_write_options = (
 );
 
 sub file_write ($@) {
-    my($path, %option, $fh, $ref, $offset, $length, $done, $chunk);
+    my($path, %option, $fh);
 
     $path = shift(@_);
     %option = validate(@_, \%file_write_options);
     $option{bufsize} ||= $DefaultBufSize;
     open($fh, ">", $path) or dief("cannot open(%s): %s", $path, $!);
     _binmode($path, $fh, $option{binmode}) if $option{binmode};
-    $offset = 0;
-    $ref = ref($option{data});
-    if ($ref eq "SCALAR") {
-	$length = length(${$option{data}});
-	while ($length) {
-	    $done = syswrite($fh, ${$option{data}}, $option{bufsize}, $offset);
-	    dief("cannot syswrite(%s): %s", $path, $!) unless defined($done);
-	    $length -= $done;
-	    $offset += $done;
-	}
-    } elsif ($ref eq "CODE") {
-	while (1) {
-	    $chunk = $option{data}->();
-	    $length = length($chunk);
-	    last unless $length;
-	    $offset = 0;
-	    while ($length) {
-		$done = syswrite($fh, $chunk, $option{bufsize}, $offset);
-		dief("cannot syswrite(%s): %s", $path, $!) unless defined($done);
-		$length -= $done;
-		$offset += $done;
-	    }
-	}
-    } else {
-	$length = length($option{data});
-	while ($length) {
-	    $done = syswrite($fh, $option{data}, $option{bufsize}, $offset);
-	    dief("cannot syswrite(%s): %s", $path, $!) unless defined($done);
-	    $length -= $done;
-	    $offset += $done;
-	}
-    }
+    _file_write_io($path, $fh, $option{data}, $option{bufsize});
     close($fh) or dief("cannot close(%s): %s", $path, $!);
 }
 
@@ -160,7 +181,7 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, map("file_$_", qw(read write)));
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

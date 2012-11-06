@@ -13,16 +13,18 @@
 package No::Worries::Date;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.7 $ =~ /(\d+)\.(\d+)/);
+use 5.005; # need the four-argument form of substr()
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use HTTP::Date qw(str2time);
-use No::Worries qw();
 use No::Worries::Die qw(dief);
+use No::Worries::Export qw(export_control);
+use Params::Validate qw(validate_pos :types);
 use POSIX qw(strftime);
 
 #
@@ -40,6 +42,7 @@ sub date_parse ($) {
     my($string) = @_;
     my($time);
 
+    validate_pos(@_, { type => SCALAR });
     $time = str2time($string);
     dief("invalid date: %s", $string) unless defined($time);
     return($time);
@@ -53,14 +56,15 @@ sub date_stamp (;$) {
     my($time) = @_;
     my($string);
 
+    validate_pos(@_, { type => SCALAR }) if @_;
     $time = time() unless defined($time);
     if ($time =~ /^(\d+)$/) {
-	$string = strftime(STRFTIME_STAMP_FORMAT, localtime($1));
+        $string = strftime(STRFTIME_STAMP_FORMAT, localtime($1));
     } elsif ($time =~ /^(\d+)\.(\d+)$/) {
-	$string = strftime(STRFTIME_STAMP_FORMAT, localtime($1));
-	$string .= ".$2";
+        $string = strftime(STRFTIME_STAMP_FORMAT, localtime($1));
+        $string .= ".$2";
     } else {
-	dief("invalid time: %s", $time);
+        dief("invalid time: %s", $time);
     }
     return($string);
 }
@@ -73,14 +77,15 @@ sub date_string (;$) {
     my($time) = @_;
     my($string);
 
+    validate_pos(@_, { type => SCALAR }) if @_;
     $time = time() unless defined($time);
     if ($time =~ /^(\d+)$/) {
-	$string = strftime(STRFTIME_STRING_FORMAT, gmtime($1));
+        $string = strftime(STRFTIME_STRING_FORMAT, gmtime($1));
     } elsif ($time =~ /^(\d+)\.(\d+)$/) {
-	$string = strftime(STRFTIME_STRING_FORMAT, gmtime($1));
-	substr($string, -1, 0) = ".$2";
+        $string = strftime(STRFTIME_STRING_FORMAT, gmtime($1));
+        substr($string, -1, 0, ".$2");
     } else {
-	dief("invalid time: %s", $time);
+        dief("invalid time: %s", $time);
     }
     return($string);
 }
@@ -94,7 +99,7 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, map("date_$_", qw(parse stamp string)));
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;

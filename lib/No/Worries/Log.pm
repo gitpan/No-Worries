@@ -13,19 +13,19 @@
 package No::Worries::Log;
 use strict;
 use warnings;
-our $VERSION  = "0.6";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.7";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use IO::Handle qw();
-use No::Worries qw($ProgramName);
+use No::Worries qw($HostName $ProgramName);
 use No::Worries::Date qw(date_stamp);
+use No::Worries::Export qw(export_control);
 use No::Worries::File qw(file_read);
 use No::Worries::Die qw(dief);
-use Sys::Hostname qw(hostname);
 
 #
 # constants
@@ -41,15 +41,15 @@ use constant _LEVEL_TRACE   => "trace";
 # global variables
 #
 
-our($HostName, $Handler);
+our($Handler);
 
 our(
-    %_KnownLevel,		# hash with known levels
-    %_InterestingLevel,		# hash with interesting levels
-    %_Level2Char,		# hash mapping levels to chars for the output
-    $_MaybeInterestingInfo,	# filtering sub (partial)
-    $_InterestingInfo,		# filtering sub (complete)
-    $_ConfigTag,		# dev:ino:mtime of the last configuration file used
+    %_KnownLevel,           # hash with known levels
+    %_InterestingLevel,     # hash with interesting levels
+    %_Level2Char,           # hash mapping levels to chars for the output
+    $_MaybeInterestingInfo, # filtering sub (partial)
+    $_InterestingInfo,      # filtering sub (complete)
+    $_ConfigTag,            # dev:ino:mtime of the last configuration file used
 );
 
 #+++############################################################################
@@ -91,7 +91,7 @@ sub _expr_code ($@) {
     return("1") if $attr eq "message" and $partial;
     # for the attributes we know about, it is easy
     return("\$info->{$attr} $op $value")
-	if $attr =~ /^(level|time|program|host|file|line|sub|message)$/;
+        if $attr =~ /^(level|time|program|host|file|line|sub|message)$/;
     # for the other attributes, the test always fails if not defined
     return("(defined(\$info->{$attr}) and \$info->{$attr} $op $value)");
 }
@@ -102,21 +102,30 @@ sub _expr_code ($@) {
 
 sub _compile_filter ($@) {
     my($partial, @filter) = @_;
-    my(@code, $expr, $code, $sub);
+    my(@code, $code, $sub);
 
-    @code = ("package No::Worries::Log::Filter;", "use strict;", "use warnings;",
-	     "\$sub = sub {", "  my(\$info) = \@_;", "  return(1) if");
-    foreach $expr (@filter) {
-	if (ref($expr) eq "ARRAY") {
-	    push(@code, "    " . _expr_code($partial, @$expr));
-	} else {
-	    push(@code, "    $expr");
-	}
+    @code = (
+        "package No::Worries::Log::Filter;",
+        "use strict;",
+        "use warnings;",
+        "\$sub = sub {",
+        "  my(\$info) = \@_;",
+        "  return(1) if",
+    );
+    foreach my $expr (@filter) {
+        if (ref($expr) eq "ARRAY") {
+            push(@code, "    " . _expr_code($partial, @{ $expr }));
+        } else {
+            push(@code, "    $expr");
+        }
     }
-    $code[$#code] .= ";";
-    push(@code, "  return(0);", "}");
+    $code[-1] .= ";";
+    push(@code,
+         "  return(0);",
+         "}",
+    );
     $code = join("\n", @code);
-    eval($code);
+    eval($code); ## no critic 'BuiltinFunctions::ProhibitStringyEval'
     dief("invalid code built: %s", $@) if $@;
     return($sub);
 }
@@ -131,34 +140,34 @@ sub _parse_expr ($$$) {
 
     # we first parse the (attr, op, value) triplet
     if ($_KnownLevel{$expr}) {
-	# there can be only one level per filter line and we keep track of it
-	dief("invalid filter line: %s", $line) if $$level;
-	$$level = $expr;
-	($attr, $op, $value) = ("level", "==", $expr);
+        # there can be only one level per filter line and we keep track of it
+        dief("invalid filter line: %s", $line) if ${ $level };
+        ${ $level } = $expr;
+        ($attr, $op, $value) = ("level", "==", $expr);
     } elsif ($expr =~ /^(\w+)(==|!=)$/ and $1 ne "level") {
-	# special case for comparison with empty string
-	($attr, $op, $value) = ($1, $2, "");
+        # special case for comparison with empty string
+        ($attr, $op, $value) = ($1, $2, "");
     } elsif ($expr =~ /^(\w+)(==|!=|=~|!~|>=?|<=?)(\S+)$/ and $1 ne "level") {
-	# normal case
-	($attr, $op, $value) = ($1, $2, $3);
+        # normal case
+        ($attr, $op, $value) = ($1, $2, $3);
     } else {
-	dief("invalid filter expression: %s", $expr);
+        dief("invalid filter expression: %s", $expr);
     }
     # we then check the value
     if ($op eq "=~" or $op eq "!~") {
-	# match: check that the value is a valid regular expression
-	eval { $expr =~ /$value/ };
-	dief("invalid regexp: %s", $value) if $@;
-	$value = "m\0$value\0";
+        # match: check that the value is a valid regular expression
+        eval { $expr =~ /$value/ };
+        dief("invalid regexp: %s", $value) if $@;
+        $value = "m\0$value\0";
     } elsif ($op eq "==" or $op eq "!=") {
-	# equality: adjust according to type
-	unless ($value =~ /^-?\d+$/) {
-	    $op = $op eq "==" ? "eq" : "ne";
-	    $value = "qq\0$value\0";
-	}
+        # equality: adjust according to type
+        unless ($value =~ /^-?\d+$/) {
+            $op = $op eq "==" ? "eq" : "ne";
+            $value = "qq\0$value\0";
+        }
     } else {
-	# numerical: check that the value is a valid integer
-	dief("invalid integer: %s", $value) unless $value =~ /^-?\d+$/;
+        # numerical: check that the value is a valid integer
+        dief("invalid integer: %s", $value) unless $value =~ /^-?\d+$/;
     }
     # so far, so good
     return([ $attr, $op, $value ]);
@@ -170,61 +179,61 @@ sub _parse_expr ($$$) {
 
 sub log_filter ($) {
     my($filter) = @_;
-    my($line, $and_re, $or_re, $level, @list, $expr, @filter, %il, $ii, $mii);
+    my($and_re, $or_re, $level, @list, @filter, %il, $ii, $mii);
 
     # strip comments and empty lines and extra spaces
     @list = ();
-    foreach $line (split(/\n/, $filter)) {
-	$line =~ s/^\s+//;
-	$line =~ s/\s+$//;
-	$line =~ s/\s+/ /g;
-	next if $line eq "" or $line =~ /^\#/;
-	push(@list, $line);
+    foreach my $line (split(/\n/, $filter)) {
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+        $line =~ s/\s+/ /g;
+        next if $line eq "" or $line =~ /^\#/;
+        push(@list, $line);
     }
     $filter = join("\n", @list);
     # find out how to split lines and expressions
     if ($filter =~ /\s(and|or)\s/) {
-	# with syntactical sugar
-	$and_re = qr/\s+and\s+/;
-	$or_re = qr/\s+or\s+/;
+        # with syntactical sugar
+        $and_re = qr/\s+and\s+/;
+        $or_re = qr/\s+or\s+/;
     } else {
-	# without syntactical sugar
-	$and_re = qr/ /;
-	$or_re = qr/\n/;
+        # without syntactical sugar
+        $and_re = qr/ /;
+        $or_re = qr/\n/;
     }
     # parse line by line
-    foreach $line (split($or_re, $filter)) {
-	$line =~ s/^\s+//;
-	$line =~ s/\s+$//;
-	next if $line eq "" or $line =~ /^\#/;
-	$level = "";
-	@list = ();
-	foreach $expr (split($and_re, $line)) {
-	    $expr = _parse_expr($line, \$level, $expr);
-	    # each expression within a line is AND'ed
-	    push(@list, $expr, "and");
-	}
-	if ($level) {
-	    # one level specified
-	    $il{$level}++;
-	} else {
-	    # no level specified => all are potentially interesting
-	    foreach $level (keys(%_KnownLevel)) {
-		$il{$level}++;
-	    }
-	}
-	# remove the last "and"
-	pop(@list);
-	# each line within a filter is OR'ed
-	push(@filter, @list, "or");
+    foreach my $line (split($or_re, $filter)) {
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+        next if $line eq "" or $line =~ /^\#/;
+        $level = "";
+        @list = ();
+        foreach my $expr (split($and_re, $line)) {
+            $expr = _parse_expr($line, \$level, $expr);
+            # each expression within a line is AND'ed
+            push(@list, $expr, "and");
+        }
+        if ($level) {
+            # one level specified
+            $il{$level}++;
+        } else {
+            # no level specified => all are potentially interesting
+            foreach my $kl (keys(%_KnownLevel)) {
+                $il{$kl}++;
+            }
+        }
+        # remove the last "and"
+        pop(@list);
+        # each line within a filter is OR'ed
+        push(@filter, @list, "or");
     }
     if (@filter) {
-	# non-empty filter => remove the last "or"
-	pop(@filter);
+        # non-empty filter => remove the last "or"
+        pop(@filter);
     } else {
-	# empty filter => default behavior
-	%il = (_LEVEL_INFO() => 1);
-	@filter = ("1");
+        # empty filter => default behavior
+        %il = (_LEVEL_INFO() => 1);
+        @filter = ("1");
     }
     $ii  = _compile_filter(0, @filter);
     $mii = _compile_filter(1, @filter);
@@ -250,8 +259,8 @@ sub log2std ($) {
 
     $id = $INC{"threads.pm"} ? "$info->{pid}.$info->{tid}": $info->{pid};
     $string = sprintf("%s %s %s[%s]: %s\n",
-		      $_Level2Char{$info->{level}}, date_stamp($info->{time}),
-		      $info->{program}, $id, $info->{message});
+                      $_Level2Char{$info->{level}}, date_stamp($info->{time}),
+                      $info->{program}, $id, $info->{message});
     $fh = $info->{level} eq _LEVEL_INFO ? *STDOUT : *STDERR;
     $fh->print($string);
     $fh->flush();
@@ -264,14 +273,14 @@ sub log2std ($) {
 
 sub log2dump ($) {
     my($info) = @_;
-    my($attr, @list);
+    my(@list);
 
-    foreach $attr (sort(keys(%$info))) {
-	if ($info->{$attr} =~ /^[\w\.\-\/]*$/) {
-	    push(@list, "$attr=$info->{$attr}");
-	} else {
-	    push(@list, "$attr=\'$info->{$attr}\'");
-	}
+    foreach my $attr (sort(keys(%{ $info }))) {
+        if ($info->{$attr} =~ /^[\w\.\-\/]*$/) {
+            push(@list, "$attr=$info->{$attr}");
+        } else {
+            push(@list, "$attr=\'$info->{$attr}\'");
+        }
     }
     STDERR->print("% @list\n");
     STDERR->flush();
@@ -290,40 +299,42 @@ sub log2dump ($) {
 
 sub _message ($$) {
     my($message, $info) = @_;
-    my(@list, $format, $arg, $pos);
+    my(@list, $format, $pos);
 
-    @list = @$message;
+    @list = @{ $message };
     unless (@list) {
-	# no message given => empty string
-	return("");
+        # no message given => empty string
+        return("");
     }
     $format = shift(@list);
     if (ref($format) eq "CODE") {
-	# code message => result of the call
-	return($format->(@list));
+        # code message => result of the call
+        return($format->(@list));
     }
     if (ref($format)) {
-	# unexpected first argument
-	dief("unexpected argument: %s", $format);
+        # unexpected first argument
+        dief("unexpected argument: %s", $format);
     }
     unless (@list) {
-	# plain message
-	return($format);
+        # plain message
+        return($format);
     }
     # sprintf message => format it
     $pos = 0;
-    foreach $arg (@list) {
-	if (ref($arg) eq "SCALAR") {
-	    # attribute argument
-	    dief("unknown attribute: %s", $$arg) unless defined($info->{$$arg});
-	    $arg = $info->{$$arg};
-	} elsif (not ref($arg)) {
-	    # plain argument
-	    dief("undefined argument at position %d", $pos) unless defined($arg);
-	} else {
-	    dief("unexpected argument: %s", $arg);
-	}
-	$pos++;
+    foreach my $arg (@list) {
+        if (ref($arg) eq "SCALAR") {
+            # attribute argument
+            dief("unknown attribute: %s", ${ $arg })
+                unless defined($info->{${ $arg }});
+            $arg = $info->{${ $arg }};
+        } elsif (not ref($arg)) {
+            # plain argument
+            dief("undefined argument at position %d", $pos)
+                unless defined($arg);
+        } else {
+            dief("unexpected argument: %s", $arg);
+        }
+        $pos++;
     }
     return(sprintf($format, @list));
 }
@@ -390,12 +401,12 @@ sub log_error (@) {
     my($attrs);
 
     return(0) unless $_InterestingLevel{_LEVEL_ERROR()};
-    if (@args and ref($args[$#args]) eq "HASH") {
-	$attrs = pop(@args);
+    if (@args and ref($args[-1]) eq "HASH") {
+        $attrs = pop(@args);
     } else {
-	$attrs = {};
+        $attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => _LEVEL_ERROR }));
+    return(_handle(\@args, { %{ $attrs }, level => _LEVEL_ERROR }));
 }
 
 #
@@ -407,12 +418,12 @@ sub log_warning (@) {
     my($attrs);
 
     return(0) unless $_InterestingLevel{_LEVEL_WARNING()};
-    if (@args and ref($args[$#args]) eq "HASH") {
-	$attrs = pop(@args);
+    if (@args and ref($args[-1]) eq "HASH") {
+        $attrs = pop(@args);
     } else {
-	$attrs = {};
+        $attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => _LEVEL_WARNING }));
+    return(_handle(\@args, { %{ $attrs }, level => _LEVEL_WARNING }));
 }
 
 #
@@ -424,12 +435,12 @@ sub log_info (@) {
     my($attrs);
 
     return(0) unless $_InterestingLevel{_LEVEL_INFO()};
-    if (@args and ref($args[$#args]) eq "HASH") {
-	$attrs = pop(@args);
+    if (@args and ref($args[-1]) eq "HASH") {
+        $attrs = pop(@args);
     } else {
-	$attrs = {};
+        $attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => _LEVEL_INFO }));
+    return(_handle(\@args, { %{ $attrs }, level => _LEVEL_INFO }));
 }
 
 #
@@ -441,12 +452,12 @@ sub log_debug (@) {
     my($attrs);
 
     return(0) unless $_InterestingLevel{_LEVEL_DEBUG()};
-    if (@args and ref($args[$#args]) eq "HASH") {
-	$attrs = pop(@args);
+    if (@args and ref($args[-1]) eq "HASH") {
+        $attrs = pop(@args);
     } else {
-	$attrs = {};
+        $attrs = {};
     }
-    return(_handle(\@args, { %$attrs, level => _LEVEL_DEBUG }));
+    return(_handle(\@args, { %{ $attrs }, level => _LEVEL_DEBUG }));
 }
 
 #
@@ -467,11 +478,6 @@ sub log_trace () {
 #                                                                              #
 #---############################################################################
 
-# we set once for all the host name
-$HostName = hostname() || "<unknown-host-name>";
-$HostName = lc($HostName);
-$HostName =~ s/\..+$//;
-
 # we select the relevant handler to use
 if ($ENV{NO_WORRIES} and $ENV{NO_WORRIES} =~ /\b(log2dump)\b/) {
     $Handler = \&log2dump;
@@ -487,7 +493,9 @@ if ($ENV{NO_WORRIES} and $ENV{NO_WORRIES} =~ /\b(log2dump)\b/) {
     debug   => "#",
     trace   => "=",
 );
-grep($_KnownLevel{$_}++, keys(%_Level2Char));
+foreach my $level (keys(%_Level2Char)) {
+    $_KnownLevel{$level}++;
+}
 
 # by default we only care about informational level or higher
 %_InterestingLevel = %_KnownLevel;
@@ -505,11 +513,14 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, map("log_$_", qw(configure filter)));
-    grep($exported{$_}++, map(("log_$_", "log_wants_$_"), qw(error warning info debug trace)));
-    $exported{log2std}  = sub { $Handler = \&log2std };
-    $exported{log2dump} = sub { $Handler = \&log2dump };
-    No::Worries::_import(scalar(caller()), $pkg, \%exported, @_);
+    grep($exported{$_}++,
+         map("log_$_", qw(configure filter)),
+         map("log_$_",       qw(error warning info debug trace)),
+         map("log_wants_$_", qw(error warning info debug trace)),
+    );
+    $exported{"log2std"}  = sub { $Handler = \&log2std };
+    $exported{"log2dump"} = sub { $Handler = \&log2dump };
+    export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
 1;
@@ -591,7 +602,7 @@ C<debug> or C<trace>
 
 =item * C<program>: the program name, as known by the No::Worries module
 
-=item * C<host>: the host name, see $No::Worries::Log::HostName
+=item * C<host>: the host name, see $No::Worries::HostName
 
 =item * C<pid>: the process identifier
 
@@ -843,11 +854,6 @@ exported):
 
 =over
 
-=item $HostName
-
-the name of the host (this will be put in the C<host> attribute), the
-default is derived from L<Sys::Hostname>'s hostname()
-
 =item $Handler
 
 the subroutine (code reference) to call for every information that
@@ -876,8 +882,7 @@ use No::Worries::Log::log2dump()
 =head1 SEE ALSO
 
 L<No::Worries>,
-L<No::Worries::Syslog>,
-L<Sys::Hostname>.
+L<No::Worries::Syslog>.
 
 =head1 AUTHOR
 
