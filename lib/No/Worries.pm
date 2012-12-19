@@ -13,8 +13,8 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.25 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -263,6 +263,16 @@ Here are the relevant sub-modules and what they provide:
 
 =back
 
+=item L<No::Worries::Stat> - file status handling:
+
+=over
+
+=item * stat_ensure(PATH[, OPTIONS])
+
+=item * stat_type(MODE)
+
+=back
+
 =item L<No::Worries::String> - string handling:
 
 =over
@@ -334,6 +344,7 @@ L<No::Worries::File>,
 L<No::Worries::Log>,
 L<No::Worries::PidFile>,
 L<No::Worries::Proc>,
+L<No::Worries::Stat>,
 L<No::Worries::String>,
 L<No::Worries::Syslog>,
 L<No::Worries::Warn>,

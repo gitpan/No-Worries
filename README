@@ -27,6 +27,7 @@ perldoc command.
     perldoc No::Worries::Log
     perldoc No::Worries::PidFile
     perldoc No::Worries::Proc
+    perldoc No::Worries::Stat
     perldoc No::Worries::String
     perldoc No::Worries::Syslog
     perldoc No::Worries::Warn

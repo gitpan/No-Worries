@@ -14,6 +14,7 @@ lib/No/Worries/File.pm
 lib/No/Worries/Log.pm
 lib/No/Worries/PidFile.pm
 lib/No/Worries/Proc.pm
+lib/No/Worries/Stat.pm
 lib/No/Worries/String.pm
 lib/No/Worries/Warn.pm
 lib/No/Worries/Syslog.pm
@@ -27,6 +28,7 @@ t/1file.t
 t/1log.t
 t/1pidfile.t
 t/1proc.t
+t/1stat.t
 t/1string.t
 t/1syslog.t
 t/3pod.t

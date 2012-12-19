@@ -1,5 +1,9 @@
 Revision history for No-Worries:
 
+0.8	Wed Dec 19 2012
+	* No::Worries::Export: added support for version checking.
+	* Added No::Worries::Stat to ease file status handling.
+
 0.7	Tue Nov  6 2012
 	* Added No::Worries::String to ease string handling.
 	* Added No::Worries::Export to ease symbol export control.

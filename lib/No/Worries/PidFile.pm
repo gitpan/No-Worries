@@ -13,8 +13,8 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -24,15 +24,10 @@ use Fcntl qw(:DEFAULT :flock :seek);
 use No::Worries::Die qw(dief);
 use No::Worries::Export qw(export_control);
 use No::Worries::Proc qw(proc_terminate);
+use No::Worries::Stat qw(ST_MTIME);
 use Params::Validate qw(validate :types);
 use POSIX qw(:errno_h);
 use Time::HiRes qw();
-
-#
-# constants
-#
-
-use constant ST_MTIME => 9;  # time of last modification
 
 #
 # safely read something from an open file

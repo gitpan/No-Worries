@@ -13,8 +13,8 @@
 package No::Worries::Export;
 use strict;
 use warnings;
-our $VERSION  = "0.7";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.5 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -37,7 +37,7 @@ sub export_control ($$$@) {
     );
     while (@names) {
         $name = shift(@names);
-        # special case for * and /.../
+        # special case for * and /.../ and x.y
         if ($name eq "*") {
             unshift(@names, grep(!ref($exported->{$_}), keys(%{ $exported })));
             next;
@@ -45,6 +45,10 @@ sub export_control ($$$@) {
             $regexp = $1;
             unshift(@names, grep(/$regexp/, grep(!ref($exported->{$_}),
                                                  keys(%{ $exported }))));
+            next;
+        } elsif ($name =~ /^\d/) {
+            # version checking via UNIVERSAL
+            $pkg->VERSION($name);
             next;
         }
         die("\"$name\" is not exported by the $pkg module\n")
@@ -160,6 +164,14 @@ The special symbols can be used to execute any code. For instance:
 
   # importing code
   use Foo qw(syslog);
+
+Finally, anything looking like a number will trigger a version check:
+
+  use Foo qw(1.2);
+  # will trigger
+  Foo->VERSION(1.2);
+
+See L<UNIVERSAL> for more information on the VERSION() mthod.
 
 =head1 FUNCTIONS
 
