@@ -13,8 +13,8 @@
 package No::Worries::Stat;
 use strict;
 use warnings;
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.7 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -262,13 +262,16 @@ sub stat_type ($) {
     unless (@_Mode2Type) {
         # standard
         $_Mode2Type[S_IFREG()  >> _IBITS] = "plain file";
-        $_Mode2Type[S_IFBLK()  >> _IBITS] = "block device";
-        $_Mode2Type[S_IFCHR()  >> _IBITS] = "character device";
         $_Mode2Type[S_IFDIR()  >> _IBITS] = "directory";
         $_Mode2Type[S_IFIFO()  >> _IBITS] = "pipe";
-        $_Mode2Type[S_IFLNK()  >> _IBITS] = "symlink";
         $_Mode2Type[S_IFSOCK() >> _IBITS] = "socket";
         # optional
+        $_Mode2Type[S_IFBLK()  >> _IBITS] = "block device"
+            if defined(&S_IFBLK);
+        $_Mode2Type[S_IFCHR()  >> _IBITS] = "character device"
+            if defined(&S_IFCHR);
+        $_Mode2Type[S_IFLNK()  >> _IBITS] = "symlink"
+            if defined(&S_IFLNK);
         $_Mode2Type[S_IFDOOR() >> _IBITS] = "door"
             if defined(&S_IFDOOR);
         $_Mode2Type[S_IFPORT() >> _IBITS] = "event port"
@@ -387,7 +390,7 @@ number of 512B blocks allocated
 
 =back
 
-In addition, it also optionally exports all the "mode" constants from L<Fcntl>.
+In addition, it also optionally exports all the ":mode" constants from L<Fcntl>.
 
 This way, all the stat() related constants can be imported in a uniform way.
 
@@ -403,12 +406,13 @@ exported by default):
 given the file mode (C<ST_MODE> field), return the file type as a string;
 possible return values are: "block device", "character device", "directory",
 "door", "event port", "network file", "pipe", "plain file", "socket",
-"symlink" and "whiteout".
+"symlink", "unknown" and "whiteout".
 
 =item stat_ensure(PATH[, OPTIONS])
 
 make sure the given path has the expected file "status" (w.r.t. stat()) and
-call chown(), chmod() or utime() if needed, supported options:
+call chown(), chmod() or utime() if needed, returning the number of changes
+performed; supported options:
 
 =over
 
@@ -476,4 +480,4 @@ L<No::Worries>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2012
+Copyright (C) CERN 2012-2013

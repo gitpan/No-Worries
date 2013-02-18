@@ -14,8 +14,8 @@ package No::Worries::Proc;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.21 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -339,6 +339,8 @@ sub proc_create (@) {
         dir_change($option{cwd}) if defined($option{cwd});
         # make sure the STD* file handles are "normal"
         foreach my $glob (*STDIN, *STDOUT, *STDERR) {
+            next unless tied($glob);
+            no warnings qw(untie);  ## no critic 'ProhibitNoWarnings'
             untie($glob);
         }
         # handle the pipe ends to close
@@ -564,7 +566,7 @@ sub proc_monitor ($@) {
         if defined($option{timeout});
     while ($iosr or $iosw
            or grep(!defined($_->{status}), values(%{ $process }))) {
-        $timeout = 0.001;
+        $timeout = 0.01;
         # read what can be read
         $timeout = _monitor_reading($process, $map, $iosr, $option{bufsize},
                                     $timeout) if $iosr;
@@ -914,4 +916,4 @@ L<No::Worries>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2012
+Copyright (C) CERN 2012-2013

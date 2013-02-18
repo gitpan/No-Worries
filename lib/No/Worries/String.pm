@@ -13,15 +13,15 @@
 package No::Worries::String;
 use strict;
 use warnings;
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.4 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use No::Worries::Export qw(export_control);
-use Params::Validate qw(validate_pos :types);
+use Params::Validate qw(validate validate_pos :types);
 
 #
 # global variables
@@ -44,6 +44,59 @@ sub string_escape ($) {
         push(@list, $ord < 256 ? $_Map[$ord] : sprintf("\\x{%04x}", $ord));
     }
     return(join("", @list));
+}
+
+#
+# transform a table into a string
+#
+
+my %string_table_options = (
+    colsep  => { optional => 1, type => SCALAR },
+    header  => { optional => 1, type => ARRAYREF },
+    headsep => { optional => 1, type => SCALAR },
+    indent  => { optional => 1, type => SCALAR },
+);
+
+sub string_table ($@) {
+    my($lines, %option, @length, $index, $length, $format, $result);
+
+    # handle options
+    $lines = shift(@_);
+    %option = validate(@_, \%string_table_options) if @_;
+    $option{colsep} = " | " unless defined($option{colsep});
+    $option{headsep} = "=" unless defined($option{headsep});
+    $option{indent} = "" unless defined($option{indent});
+    # compute column lengths
+    foreach my $line ($option{header} ? ($option{header}) : (), @{ $lines }) {
+        $index = 0;
+        foreach my $entry (@{ $line }) {
+            $length = defined($entry) ? length($entry) : 0;
+            $length[$index] = $length
+                unless defined($length[$index]) and $length[$index] >= $length;
+            $index++;
+        }
+    }
+    # setup formatting
+    $length = length($option{colsep}) * (@length - 1);
+    foreach my $colen (@length) {
+        $length += $colen;
+    }
+    $format = join($option{colsep}, map("%-${_}s", @length)) . "\n";
+    $result = "";
+    # format header
+    if ($option{header}) {
+        $result .= $option{indent};
+        $result .= sprintf($format, @{ $option{header} });
+        $result .= $option{indent};
+        $result .= substr($option{headsep} x $length, 0, $length) . "\n";
+    }
+    # format lines
+    foreach my $line (@{ $lines }) {
+        $result .= $option{indent};
+        $result .= sprintf($format, map(defined($_) ? $_ : "",
+                                        map($line->[$_], 0 .. $#length)));
+    }
+    return($result);
 }
 
 #
@@ -81,7 +134,7 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, map("string_$_", qw(escape trim)));
+    grep($exported{$_}++, map("string_$_", qw(escape table trim)));
     export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
@@ -95,9 +148,19 @@ No::Worries::String - string handling without worries
 
 =head1 SYNOPSIS
 
-  use No::Worries::String qw(string_escape string_trim);
+  use No::Worries::String qw(string_escape string_table string_trim);
 
+  # escape a string
   printf("found %s\n", string_escape($data));
+
+  # format a table
+  print(string_table([
+      [1, 1,  1],
+      [2, 4,  8],
+      [3, 9, 27],
+  ], header => [qw(x x^2 x^3)]));
+
+  # trim a string
   $string = string_trim($input);
 
 =head1 DESCRIPTION
@@ -118,6 +181,23 @@ return a new string with all potentially non-printable characters
 escaped; this includes ASCII control characters, non-7bit ASCII and
 Unicode characters
 
+=item string_table(TABLE[, OPTIONS])
+
+transform the given table (a reference to an array of arrays of strings)
+into a formatted multi-line string; supported options:
+
+=over
+
+=item * C<colsep>: column separator string (default: " | ")
+
+=item * C<header>: array reference of column headers (default: none)
+
+=item * C<headsep>: header separator (default: "=")
+
+=item * C<indent>: string to prepend to each line (default: "")
+
+=back
+
 =item string_trim(STRING)
 
 return a new string with leading and trailing spaces removed
@@ -132,4 +212,4 @@ L<No::Worries>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2012
+Copyright (C) CERN 2012-2013

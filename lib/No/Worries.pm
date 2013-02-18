@@ -13,8 +13,8 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.25 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.27 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -279,6 +279,8 @@ Here are the relevant sub-modules and what they provide:
 
 =item * string_escape(STRING)
 
+=item * string_table(TABLE[, OPTIONS])
+
 =item * string_trim(STRING)
 
 =back
@@ -354,4 +356,4 @@ L<Params::Validate>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2012
+Copyright (C) CERN 2012-2013

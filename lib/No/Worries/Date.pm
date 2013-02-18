@@ -14,8 +14,8 @@ package No::Worries::Date;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "0.8";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -170,4 +170,4 @@ L<No::Worries>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright CERN 2012
+Copyright (C) CERN 2012-2013
