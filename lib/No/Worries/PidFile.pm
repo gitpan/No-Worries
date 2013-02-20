@@ -13,7 +13,7 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "0.8_2";
+our $VERSION  = "0.8_3";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
 
 #

@@ -13,7 +13,7 @@
 package No::Worries::DN;
 use strict;
 use warnings;
-our $VERSION  = "0.8_2";
+our $VERSION  = "0.8_3";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.6 $ =~ /(\d+)\.(\d+)/);
 
 #

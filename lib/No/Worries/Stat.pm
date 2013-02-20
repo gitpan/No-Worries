@@ -13,8 +13,8 @@
 package No::Worries::Stat;
 use strict;
 use warnings;
-our $VERSION  = "0.8_2";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.8_3";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -260,26 +260,17 @@ sub stat_type ($) {
     my($mode) = @_;
 
     unless (@_Mode2Type) {
-        # standard
-        $_Mode2Type[S_IFREG()  >> _IBITS] = "plain file";
-        $_Mode2Type[S_IFDIR()  >> _IBITS] = "directory";
-        $_Mode2Type[S_IFIFO()  >> _IBITS] = "pipe";
-        $_Mode2Type[S_IFSOCK() >> _IBITS] = "socket";
-        # optional
-        $_Mode2Type[S_IFBLK()  >> _IBITS] = "block device"
-            if defined(&S_IFBLK);
-        $_Mode2Type[S_IFCHR()  >> _IBITS] = "character device"
-            if defined(&S_IFCHR);
-        $_Mode2Type[S_IFLNK()  >> _IBITS] = "symlink"
-            if defined(&S_IFLNK);
-        $_Mode2Type[S_IFDOOR() >> _IBITS] = "door"
-            if defined(&S_IFDOOR);
-        $_Mode2Type[S_IFPORT() >> _IBITS] = "event port"
-            if defined(&S_IFPORT);
-        $_Mode2Type[S_IFNWK()  >> _IBITS] = "network file"
-            if defined(&S_IFNWK);
-        $_Mode2Type[S_IFWHT()  >> _IBITS] = "whiteout"
-            if defined(&S_IFWHT);
+        eval { $_Mode2Type[S_IFREG()  >> _IBITS] = "plain file" };
+        eval { $_Mode2Type[S_IFDIR()  >> _IBITS] = "directory" };
+        eval { $_Mode2Type[S_IFIFO()  >> _IBITS] = "pipe" };
+        eval { $_Mode2Type[S_IFSOCK() >> _IBITS] = "socket" };
+        eval { $_Mode2Type[S_IFBLK()  >> _IBITS] = "block device" };
+        eval { $_Mode2Type[S_IFCHR()  >> _IBITS] = "character device" };
+        eval { $_Mode2Type[S_IFLNK()  >> _IBITS] = "symlink" };
+        eval { $_Mode2Type[S_IFDOOR() >> _IBITS] = "door" };
+        eval { $_Mode2Type[S_IFPORT() >> _IBITS] = "event port" };
+        eval { $_Mode2Type[S_IFNWK()  >> _IBITS] = "network file" };
+        eval { $_Mode2Type[S_IFWHT()  >> _IBITS] = "whiteout" };
     }
     $mode &= S_IFMT;
     $mode >>= _IBITS;
