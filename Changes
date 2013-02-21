@@ -1,6 +1,6 @@
 Revision history for No-Worries:
 
-0.8_3	Wed Feb 20 2013 (developer version)
+0.8_4	Thu Feb 21 2013 (developer version)
 	* No::Worries::String: added string_table() for table formatting.
 	* No::Worries::Proc: improved support for embedded Perl Nagios (ePN).
 	* No::Worries::Stat: improved portability.

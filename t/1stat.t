@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 26;
+use Test::More tests => 30;
 use File::Temp qw(tempdir);
 use No::Worries::Dir qw(dir_ensure);
 use No::Worries::File qw(file_write);
@@ -15,13 +15,61 @@ $dir = tempdir(CLEANUP => 1);
 
 # types
 
-is(stat_type(S_IFREG),  "plain file", "stat_type(plain file)");
-is(stat_type(S_IFBLK),  "block device", "stat_type(block device)");
-is(stat_type(S_IFCHR),  "character device", "stat_type(character device)");
-is(stat_type(S_IFDIR),  "directory", "stat_type(directory)");
-is(stat_type(S_IFIFO),  "pipe", "stat_type(pipe)");
-is(stat_type(S_IFLNK),  "symlink", "stat_type(symlink)");
-is(stat_type(S_IFSOCK), "socket", "stat_type(socket)");
+if (defined(&S_IFREG)) {
+    is(stat_type(S_IFREG),  "plain file", "stat_type(plain file)");
+} else {
+    pass("S_IFREG is not defined");
+}
+if (defined(&S_IFDIR)) {
+    is(stat_type(S_IFDIR),  "directory", "stat_type(directory)");
+} else {
+    pass("S_IFDIR is not defined");
+}
+if (defined(&S_IFIFO)) {
+    is(stat_type(S_IFIFO),  "pipe", "stat_type(pipe)");
+} else {
+    pass("S_IFIFO is not defined");
+}
+if (defined(&S_IFSOCK)) {
+    is(stat_type(S_IFSOCK), "socket", "stat_type(socket)");
+} else {
+    pass("S_IFSOCK is not defined");
+}
+if (defined(&S_IFBLK)) {
+    is(stat_type(S_IFBLK),  "block device", "stat_type(block device)");
+} else {
+    pass("S_IFBLK is not defined");
+}
+if (defined(&S_IFCHR)) {
+    is(stat_type(S_IFCHR),  "character device", "stat_type(character device)");
+} else {
+    pass("S_IFCHR is not defined");
+}
+if (defined(&S_IFLNK)) {
+    is(stat_type(S_IFLNK),  "symlink", "stat_type(symlink)");
+} else {
+    pass("S_IFLNK is not defined");
+}
+if (defined(&S_IFDOOR)) {
+    is(stat_type(S_IFDOOR), "door", "stat_type(door)");
+} else {
+    pass("S_IFDOOR is not defined");
+}
+if (defined(&S_IFPORT)) {
+    is(stat_type(S_IFPORT), "event port", "stat_type(event port)");
+} else {
+    pass("S_IFPORT is not defined");
+}
+if (defined(&S_IFNWK)) {
+    is(stat_type(S_IFNWK),  "network file", "stat_type(network file)");
+} else {
+    pass("S_IFNWK is not defined");
+}
+if (defined(&S_IFWHT)) {
+    is(stat_type(S_IFWHT),  "whiteout", "stat_type(whiteout)");
+} else {
+    pass("S_IFWHT is not defined");
+}
 
 # constants consistency
 
