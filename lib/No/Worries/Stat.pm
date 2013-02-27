@@ -13,8 +13,8 @@
 package No::Worries::Stat;
 use strict;
 use warnings;
-our $VERSION  = "0.8_5";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.11 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "0.9";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -308,11 +308,11 @@ No::Worries::Stat - stat() handling without worries
   printf("user can read\n") if $stat[ST_MODE] & S_IRUSR;
 
   # make sure "/bin/ls" is owned by root and has the right permissions
-  state_ensure("/bin/ls", user => "root", mode => 0755);
+  stat_ensure("/bin/ls", user => "root", mode => 0755);
   # make sure "/var/log" is not group or world writable
-  state_ensure("/var/log", mode => "-022");
+  stat_ensure("/var/log", mode => "-022");
   # idem but using the S_* constants
-  state_ensure("/var/log", mode => "-" . (S_IWGRP|S_IWOTH));
+  stat_ensure("/var/log", mode => "-" . (S_IWGRP|S_IWOTH));
 
 =head1 DESCRIPTION
 
@@ -459,7 +459,7 @@ Here is for insatnce how a "noaction" option could be implemented:
       return(0);
   }
   foreach my $path (@paths) {
-      state_ensure($path, user => "root", mode => 0755, callback => \&noaction);
+      stat_ensure($path, user => "root", mode => 0755, callback => \&noaction);
   }
 
 =head1 SEE ALSO

@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 32;
+use Test::More tests => 30;
 use File::Temp qw(tempdir);
 use No::Worries::Dir qw(dir_ensure);
 use No::Worries::File qw(file_write);
@@ -13,7 +13,7 @@ our($dir, $path, @stat);
 
 $dir = tempdir(CLEANUP => 1);
 
-# type tests
+# types
 
 if (defined(&S_IFREG)) {
     is(stat_type(S_IFREG),  "plain file", "stat_type(plain file)");
@@ -71,7 +71,7 @@ if (defined(&S_IFWHT)) {
     pass("S_IFWHT is not defined");
 }
 
-# constants consistency tests
+# constants consistency
 
 is(S_IRWXU, S_IRUSR | S_IWUSR | S_IXUSR, "S_IRWXU");
 is(S_IRWXG, S_IRGRP | S_IWGRP | S_IXGRP, "S_IRWXU");
@@ -98,26 +98,18 @@ ok(S_ISREG($stat[ST_MODE]), "S_ISREG(file)");
 ok(!S_ISDIR($stat[ST_MODE]), "!S_ISDIR(file)");
 is($stat[ST_SIZE], 3, "size(file)");
 
-# ensure tests (chmod() does not work reliably on Windows)
+# ensure tests
 
-SKIP : {
-    skip("stat_ensure() not supported (yet) on $^O", 9)
-        if $^O =~ /^(cygwin|dos|MSWin32)$/;
-    ok(chmod(0644, $path), "chmod(0644)");
+ok(chmod(0644, $path), "chmod(0644)");
 
-    is(stat_ensure($path, mode => 0644), 0, "stat_ensure(0644)");
-    @stat = stat($path);
-    is(($stat[ST_MODE] & 07777), 0644, "mode=0644");
+is(stat_ensure($path, mode => 0644), 0, "stat_ensure(0644)");
+@stat = stat($path);
+is(($stat[ST_MODE] & 07777), 0644, "mode=0644");
 
-    is(stat_ensure($path, mode => "+020"), 1, "stat_ensure(+020)");;
-    @stat = stat($path);
-    is(($stat[ST_MODE] & 07777), 0664, "mode=0664");
+is(stat_ensure($path, mode => "+020"), 1, "stat_ensure(+020)");;
+@stat = stat($path);
+is(($stat[ST_MODE] & 07777), 0664, "mode=0664");
 
-    is(stat_ensure($path, mode => "-" . S_IROTH), 1, "stat_ensure(-S_IROTH)");;
-    @stat = stat($path);
-    is(($stat[ST_MODE] & 07777), 0660, "mode=0660");
-
-    is(stat_ensure($path, mode => 0751), 1, "stat_ensure(0751)");
-    @stat = stat($path);
-    is(($stat[ST_MODE] & 07777), 0751, "mode=0751");
-}
+is(stat_ensure($path, mode => "-" . S_IROTH), 1, "stat_ensure(-S_IROTH)");;
+@stat = stat($path);
+is(($stat[ST_MODE] & 07777), 0660, "mode=0660");
