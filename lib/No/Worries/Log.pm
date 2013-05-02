@@ -13,7 +13,7 @@
 package No::Worries::Log;
 use strict;
 use warnings;
-our $VERSION  = "0.9";
+our $VERSION  = "0.9_1";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
 
 #
