@@ -1,7 +1,9 @@
 Revision history for No-Worries:
 
-0.9_1	Thu May  2 2013 (developer version)
+1.0	Tue May 21 2013
 	* Improved tests portability.
+	* Promoted to 1.0 after successful testing.
+	* The API is now stable.
 
 0.9	Wed Feb 27 2013
 	* No::Worries::String: added string_table() for table formatting.

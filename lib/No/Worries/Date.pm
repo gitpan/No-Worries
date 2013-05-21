@@ -14,7 +14,7 @@ package No::Worries::Date;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "0.9_1";
+our $VERSION  = "1.0";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/);
 
 #
