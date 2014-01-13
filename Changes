@@ -1,7 +1,12 @@
 Revision history for No-Worries:
 
+1.1	Fri Jan 10 2014
+	* No::Worries::String: added an "align" option to string_table().
+	* No::Worries::PidFile: added pf_sleep() to ease sleeping.
+	* No::Worries::String: added string_plural() and string_quantify().
+
 1.0	Tue May 21 2013
-	* Improved tests portability.
+	* Improved tests' portability.
 	* Promoted to 1.0 after successful testing.
 	* The API is now stable.
 

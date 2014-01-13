@@ -13,8 +13,8 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "1.0";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.27 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.28 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -71,38 +71,38 @@ No::Worries - coding without worries
 
 =head1 DESCRIPTION
 
-This module and its sub-modules ease coding by providing consistent
-convenient functions to perform frequently used programming tasks.
+This module and its sub-modules ease coding by providing consistent convenient
+functions to perform frequently used programming tasks.
 
 This module also exposes the $HostName and $ProgramName variables that
-represent what the sub-modules think the host name or program name is.
-These variables can be changed, if needed.
+represent what the sub-modules think the host name or program name is. These
+variables can be changed, if needed.
 
 =head1 PROGRAMMING STYLE
 
 =head2 ERROR HANDLING
 
-All the functions die() on error so one does not have to worry about
-error checking: by default, any error will stop the code execution.
-The recommended way to catch errors is to use eval().
+All the functions die() on error so one does not have to worry about error
+checking: by default, any error will stop the code execution. The recommended
+way to catch errors is to use eval().
 
-For consistency, all the sub-modules use No::Worries::Die's dief() to
-report errors and No::Worries::Warn's warnf() to report warnings. The
-NO_WORRIES environment variable can be used to control how errors and
-warnings are reported (see L<No::Worries::Die> and L<No::Worries::Warn>).
+For consistency, all the sub-modules use No::Worries::Die's dief() to report
+errors and No::Worries::Warn's warnf() to report warnings. The NO_WORRIES
+environment variable can be used to control how errors and warnings are
+reported (see L<No::Worries::Die> and L<No::Worries::Warn>).
 
 =head2 OPTION PASSING
 
-All the functions use the same consistent API with hashes to pass
-options like in:
+All the functions use the same consistent API with hashes to pass options like
+in:
 
   dir_make("/tmp/some/path", mode => 0770);
 
-This is a bit overkill when only one option is supported but it allows
-adding options later without breaking old code.
+This is a bit overkill when only one option is supported but it allows adding
+options later without breaking old code.
 
-The options can also be passed via a hash reference (this can be
-useful to avoid data copying):
+The options can also be passed via a hash reference (this can be useful to
+avoid data copying):
 
   dir_make("/tmp/some/path", { mode => 0770 });
 
@@ -110,14 +110,14 @@ All the options are checked using L<Params::Validate>.
 
 =head2 SYMBOL IMPORTING
 
-All the modules are "clean" in the sense that they do not import any
-symbol into the caller's namespace. All the needed symbols (usually
-functions) have to be explicitly imported like in:
+All the modules are "clean" in the sense that they do not import any symbol
+into the caller's namespace. All the needed symbols (usually functions) have
+to be explicitly imported like in:
 
   use No::Worries::Die qw(dief);
 
-In addition, all "normal" symbols can be imported at once using the
-asterisk character:
+In addition, all "normal" symbols can be imported at once using the asterisk
+character:
 
   use No::Worries::Log qw(*);
 
@@ -279,6 +279,10 @@ Here are the relevant sub-modules and what they provide:
 
 =item * string_escape(STRING)
 
+=item * string_plural(STRING)
+
+=item * string_quantify(NUMBER, STRING)
+
 =item * string_table(TABLE[, OPTIONS])
 
 =item * string_trim(STRING)
@@ -356,4 +360,4 @@ L<Params::Validate>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright (C) CERN 2012-2013
+Copyright (C) CERN 2012-2014

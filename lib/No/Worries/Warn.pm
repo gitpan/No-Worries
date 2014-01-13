@@ -13,7 +13,7 @@
 package No::Worries::Warn;
 use strict;
 use warnings;
-our $VERSION  = "1.0";
+our $VERSION  = "1.1";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.21 $ =~ /(\d+)\.(\d+)/);
 
 #
@@ -217,4 +217,4 @@ L<No::Worries::Syslog>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright (C) CERN 2012-2013
+Copyright (C) CERN 2012-2014

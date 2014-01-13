@@ -14,7 +14,7 @@ package No::Worries::Proc;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "1.0";
+our $VERSION  = "1.1";
 our $REVISION = sprintf("%d.%02d", q$Revision: 1.21 $ =~ /(\d+)\.(\d+)/);
 
 #
@@ -916,4 +916,4 @@ L<No::Worries>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright (C) CERN 2012-2013
+Copyright (C) CERN 2012-2014

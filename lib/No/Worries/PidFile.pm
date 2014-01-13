@@ -13,8 +13,8 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "1.0";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.17 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.1";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -315,6 +315,37 @@ sub pf_quit ($@) {
 }
 
 #
+# sleep for some time, taking into account an optional pid file
+#
+
+my %pf_sleep_options = (
+    time => { optional => 1, type => SCALAR, regex => qr/^(\d+\.)?\d+$/ },
+);
+
+sub pf_sleep ($@) {
+    my($path, %option, $end, $sleep);
+
+    $path = shift(@_);
+    %option = validate(@_, \%pf_sleep_options) if @_;
+    $option{time} = 1 unless defined($option{time});
+    if ($path) {
+        $end = Time::HiRes::time() + $option{time} if $option{time};
+        while (1) {
+            return(0) if pf_check($path) eq "quit";
+            pf_touch($path);
+            last unless $option{time};
+            $sleep = $end - Time::HiRes::time();
+            last if $sleep <= 0;
+            $sleep = 1 if $sleep > 1;
+            Time::HiRes::sleep($sleep);
+        }
+    } else {
+        Time::HiRes::sleep($option{time}) if $option{time};
+    }
+    return(1);
+}
+
+#
 # export control
 #
 
@@ -322,7 +353,8 @@ sub import : method {
     my($pkg, %exported);
 
     $pkg = shift(@_);
-    grep($exported{$_}++, map("pf_$_", qw(set check touch unset status quit)));
+    grep($exported{$_}++, map("pf_$_",
+                              qw(set check touch unset status quit sleep)));
     export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 
@@ -336,7 +368,7 @@ No::Worries::PidFile - pid file handling without worries
 
 =head1 SYNOPSIS
 
-  use No::Worries::PidFile qw(pf_set pf_check pf_touch pf_unset pf_status pf_quit);
+  use No::Worries::PidFile qw(*);
 
   # idiomatic daemon code
   pf_set($pidfile);
@@ -345,6 +377,15 @@ No::Worries::PidFile - pid file handling without worries
       $action = pf_check($pidfile);
       last if $action eq "quit";
       pf_touch($pidfile);
+      ...
+  }
+  pf_unset($pidfile);
+
+  # idiomatic daemon code with sleeping
+  pf_set($pidfile);
+  while (1) {
+      ...
+      pf_sleep($pidfile, time => 5) or last;
       ...
   }
   pf_unset($pidfile);
@@ -366,24 +407,22 @@ No::Worries::PidFile - pid file handling without worries
 
 =head1 DESCRIPTION
 
-This module eases pid file handling by providing high level functions
-to set, check, touch and unset pid files. All the functions die() on
-error.
+This module eases pid file handling by providing high level functions to set,
+check, touch and unset pid files. All the functions die() on error.
 
-The pid file usually contains the process id on a single line,
-followed by a newline. However, it can also be followed by an optional
-I<action>, also followed by a newline. This allows some kind of
-inter-process communication: a process using pf_quit() will append the
-C<quit> I<action> to the pid file and the owning process will detect
-this via pf_check().
+The pid file usually contains the process id on a single line, followed by a
+newline. However, it can also be followed by an optional I<action>, also
+followed by a newline. This allows some kind of inter-process communication: a
+process using pf_quit() will append the C<quit> I<action> to the pid file and
+the owning process will detect this via pf_check().
 
 All the functions properly handle concurrency. For instance, when two
-processes start at the exact same time and call pf_set(), only one
-will succeed and the other one will get an error.
+processes start at the exact same time and call pf_set(), only one will
+succeed and the other one will get an error.
 
-Since an existing pid file will make pf_set() fail, it is very
-important to remove the pid file in all situations, including
-errors. The recommended way to do so is to use an END block:
+Since an existing pid file will make pf_set() fail, it is very important to
+remove the pid file in all situations, including errors. The recommended way
+to do so is to use an END block:
 
   # we need to know about transient processes
   use No::Worries::Proc qw();
@@ -403,8 +442,8 @@ errors. The recommended way to do so is to use an END block:
 
 =head1 FUNCTIONS
 
-This module provides the following functions (none of them being
-exported by default):
+This module provides the following functions (none of them being exported by
+default):
 
 =over
 
@@ -421,8 +460,8 @@ options:
 
 =item pf_check(PATH[, OPTIONS])
 
-check the pid file and make sure the given pid is present, also return
-the I<action> in the pid file or the empty string; supported options:
+check the pid file and make sure the given pid is present, also return the
+I<action> in the pid file or the empty string; supported options:
 
 =over
 
@@ -430,22 +469,33 @@ the I<action> in the pid file or the empty string; supported options:
 
 =back
 
-=item pf_touch(PATH)
-
-touch the pid file (i.e. update the file modification time) to show
-that the owning process is alive
-
 =item pf_unset(PATH)
 
 unset the pid file by removing the given path
 
+=item pf_touch(PATH)
+
+touch the pid file (i.e. update the file modification time) to show that the
+owning process is alive
+
+=item pf_sleep(PATH[, OPTIONS])
+
+check and touch the pid file and eventually sleep for the givent amount of
+time, returning true if the program should continue or false if it has been
+told to stop via pf_quit(); supported options:
+
+=over
+
+=item * C<time>: the time to sleep (default: 1, can be fractional)
+
+=back
+
 =item pf_status(PATH[, OPTIONS])
 
-use information from the pid file (including its last modification
-time) to guess the status of the corresponding process, return the
-status (true means that the process seems to be running); in list
-context, also return an informative message and an LSB compatible
-exit code; supported options:
+use information from the pid file (including its last modification time) to
+guess the status of the corresponding process, return the status (true means
+that the process seems to be running); in list context, also return an
+informative message and an LSB compatible exit code; supported options:
 
 =over
 
@@ -455,17 +505,17 @@ exit code; supported options:
 
 =item pf_quit(PATH[, OPTIONS])
 
-tell the process corresponding to the pid file to quit (setting its
-I<action> to C<quit>), wait a bit to check that it indeed stopped and
-kill it using L<No::Worries::Proc>'s proc_terminate() is everything
-else fails; supported options:
+tell the process corresponding to the pid file to quit (setting its I<action>
+to C<quit>), wait a bit to check that it indeed stopped and kill it using
+L<No::Worries::Proc>'s proc_terminate() is everything else fails; supported
+options:
 
 =over
 
 =item * C<callback>: code that will be called with information to report
 
-=item * C<linger>: maximum time to wait after having told the process
-to quit (default: 5)
+=item * C<linger>: maximum time to wait after having told the process to quit
+(default: 5)
 
 =item * C<kill>: kill specification to use when killing the process
 
@@ -483,4 +533,4 @@ L<No::Worries::Proc>.
 
 Lionel Cons L<http://cern.ch/lionel.cons>
 
-Copyright (C) CERN 2012-2013
+Copyright (C) CERN 2012-2014
