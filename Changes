@@ -1,5 +1,8 @@
 Revision history for No-Worries:
 
+1.2	Tue Apr  8 2014
+	* No::Worries::PidFile: added a timeout option to pf_status().
+
 1.1	Fri Jan 10 2014
 	* No::Worries::String: added an "align" option to string_table().
 	* No::Worries::PidFile: added pf_sleep() to ease sleeping.

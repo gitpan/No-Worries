@@ -14,14 +14,15 @@ package No::Worries::Proc;
 use strict;
 use warnings;
 use 5.005; # need the four-argument form of substr()
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.21 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.23 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use IO::Select qw();
+use No::Worries qw($_IntegerRegexp $_NumberRegexp);
 use No::Worries::Die qw(dief);
 use No::Worries::Dir qw(dir_change);
 use No::Worries::Export qw(export_control);
@@ -62,20 +63,20 @@ sub _chk_cmd (@) {
 # definition of the process structure
 #
 
-my $nbre = "(\\d+\\.)?\\d+"; # number regexp
-my $ksre = "([A-Z]+\\/${nbre}\\s+)*[A-Z]+\\/${nbre}"; # kill spec. regexp
+my $nbre = "(\\d+\\.)?\\d+"; # fractional number pattern
+my $ksre = "([A-Z]+\\/${nbre}\\s+)*[A-Z]+\\/${nbre}"; # kill spec. pattern
 
 my %proc_structure = (
     # public
     command => { optional => 0, type => ARRAYREF },
-    pid     => { optional => 0, type => SCALAR, regex => qr/^\d+$/ },
-    start   => { optional => 0, type => SCALAR, regex => qr/^${nbre}$/ },
-    stop    => { optional => 1, type => SCALAR, regex => qr/^${nbre}$/ },
+    pid     => { optional => 0, type => SCALAR, regex => $_IntegerRegexp },
+    start   => { optional => 0, type => SCALAR, regex => $_NumberRegexp },
+    stop    => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
     status  => { optional => 1, type => SCALAR, regex => qr/^-?\d+$/ },
-    timeout => { optional => 1, type => SCALAR, regex => qr/^${nbre}$/ },
+    timeout => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
     # private
     kill    => { optional => 1, type => SCALAR, regex => qr/^${ksre}$/ },
-    maxtime => { optional => 1, type => SCALAR, regex => qr/^${nbre}$/ },
+    maxtime => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
     fhin    => { optional => 1, type => GLOBREF },
     fhout   => { optional => 1, type => GLOBREF },
     fherr   => { optional => 1, type => GLOBREF },
@@ -299,7 +300,7 @@ sub _redirect_io ($$$$) {
 my %proc_create_options = (
     command => { optional => 0, type => ARRAYREF },
     cwd     => { optional => 1, type => SCALAR },
-    timeout => { optional => 1, type => SCALAR, regex => qr/^${nbre}$/ },
+    timeout => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
     kill    => { optional => 1, type => SCALAR, regex => qr/^${ksre}$/ },
     stdin   => { optional => 1, type => SCALAR | SCALARREF },
     stdout  => { optional => 1, type => SCALAR | SCALARREF | CODEREF },
@@ -533,9 +534,9 @@ sub _monitor_termination ($$$$) {
 #
 
 my %proc_monitor_options = (
-    timeout => { optional => 1, type => SCALAR, regex => qr/^${nbre}$/ },
-    bufsize => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
-    deaths  => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    timeout => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
+    bufsize => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
+    deaths  => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
 );
 
 sub proc_monitor ($@) {
@@ -714,12 +715,12 @@ No::Worries::Proc - process handling without worries
 
 =head1 DESCRIPTION
 
-This module eases process handling by providing high level functions
-to start, monitor and stop processes. All the functions die() on error.
+This module eases process handling by providing high level functions to start,
+monitor and stop processes. All the functions die() on error.
 
-It also provides the $No::Worries::Proc::Transient variable that
-indicates, after a fork(), which process is transient and is about to
-exec() or exit().  This is useful for instance in an END block:
+It also provides the $No::Worries::Proc::Transient variable that indicates,
+after a fork(), which process is transient and is about to exec() or exit().
+This is useful for instance in an END block:
 
   END {
       # remove our pid file unless we are transient
@@ -728,24 +729,24 @@ exec() or exit().  This is useful for instance in an END block:
 
 =head1 FUNCTIONS
 
-This module provides the following functions (none of them being
-exported by default):
+This module provides the following functions (none of them being exported by
+default):
 
 =over
 
 =item proc_output(COMMAND...)
 
-execute the given command, capture its output (stdout only), check its
-exit code (report an error if it is not zero) and return the captured
-output; this is similar to Perl's qx() operator but bypassing the
-shell and always checking the exit code
+execute the given command, capture its output (stdout only), check its exit
+code (report an error if it is not zero) and return the captured output; this
+is similar to Perl's qx() operator but bypassing the shell and always checking
+the exit code
 
 =item proc_create(OPTIONS)
 
-create a new process that will execute the given command and return a
-hash reference representing this process (see the L</"PROCESS
-STRUCTURE"> sections for more information), to be given to
-proc_monitor() or proc_terminate() afterwards; supported options:
+create a new process that will execute the given command and return a hash
+reference representing this process (see the L</"PROCESS STRUCTURE"> sections
+for more information), to be given to proc_monitor() or proc_terminate()
+afterwards; supported options:
 
 =over
 
@@ -753,9 +754,9 @@ proc_monitor() or proc_terminate() afterwards; supported options:
 
 =item * C<cwd>: the current working directory of the new process
 
-=item * C<timeout>: the maximum number of seconds that the process is
-allowed to take to run (can be fractional); after this, it may be
-killed by proc_monitor()
+=item * C<timeout>: the maximum number of seconds that the process is allowed
+to take to run (can be fractional); after this, it may be killed by
+proc_monitor()
 
 =item * C<kill>: how to "gently" kill the process, see below
 
@@ -769,9 +770,9 @@ killed by proc_monitor()
 
 =item proc_terminate(PROC[, OPTIONS])
 
-terminate the given process (PROC can be either a process structure or
-simply a process id) by sending signals and waiting for the process to
-finish; supported options:
+terminate the given process (PROC can be either a process structure or simply
+a process id) by sending signals and waiting for the process to finish;
+supported options:
 
 =over
 
@@ -781,39 +782,37 @@ finish; supported options:
 
 =item proc_monitor(PROCS[, OPTIONS])
 
-monitor the given process(es) (as created by proc_create()); PROCS can
-be either a single process or a reference to a list of processes;
-supported options:
+monitor the given process(es) (as created by proc_create()); PROCS can be
+either a single process or a reference to a list of processes; supported
+options:
 
 =over
 
-=item * C<timeout>: the maximum number of seconds that proc_monitor()
-should take, can be fractional
+=item * C<timeout>: the maximum number of seconds that proc_monitor() should
+take, can be fractional
 
 =item * C<bufsize>: the buffer size to use for I/O operations (default: 8192)
 
-=item * C<deaths>: the minimum number of process deaths that
-proc_monitor() will wait for before returning
+=item * C<deaths>: the minimum number of process deaths that proc_monitor()
+will wait for before returning
 
 =back
 
 =item proc_run(OPTIONS)
 
-execute the given process (i.e. create and monitor it until
-termination) and return its status (i.e. $?) in scalar context or the
-whole process structure in list context; supported options: the ones
-of proc_create()
+execute the given process (i.e. create and monitor it until termination) and
+return its status (i.e. $?) in scalar context or the whole process structure
+in list context; supported options: the ones of proc_create()
 
 =item proc_detach([OPTIONS])
 
 detach the current process so that it becomes a daemon running in the
-background (this implies forking and re-opening std*); supported
-options:
+background (this implies forking and re-opening std*); supported options:
 
 =over
 
-=item * C<callback>: code reference that will be executed by the
-parent process just before exiting and will be given the child pid
+=item * C<callback>: code reference that will be executed by the parent
+process just before exiting and will be given the child pid
 
 =back
 
@@ -821,8 +820,7 @@ parent process just before exiting and will be given the child pid
 
 =head1 PROCESS STRUCTURE
 
-The process structure (hash) used in this module has the following
-fields:
+The process structure (hash) used in this module has the following fields:
 
 =over
 
@@ -852,8 +850,8 @@ When using the C<stdin> option of proc_create(), the value can be:
 
 =back
 
-When using the C<stdout> and C<stderr> options of proc_create(), the
-value can be:
+When using the C<stdout> and C<stderr> options of proc_create(), the value can
+be:
 
 =over
 
@@ -861,23 +859,22 @@ value can be:
 
 =item * a scalar reference: output will be stored in the scalar
 
-=item * a code reference: each time new output is available, the code
-will be called with two parameters: the process structure and the new
-output
+=item * a code reference: each time new output is available, the code will be
+called with two parameters: the process structure and the new output
 
 =back
 
-In addition, C<stderr> can also be given an empty string that means
-that stderr should be merged with stdout.
+In addition, C<stderr> can also be given an empty string that means that
+stderr should be merged with stdout.
 
 =head1 KILL SPECIFICATION
 
-Both proc_create() and proc_terminate() can be given a C<kill> option
-that specifies how the process should be killed.
+Both proc_create() and proc_terminate() can be given a C<kill> option that
+specifies how the process should be killed.
 
 The specification is a string containing a space separated list of
-I<signal>/I<grace> couples, meaning: send the given signal and wait a
-bit for the process to finish.
+I<signal>/I<grace> couples, meaning: send the given signal and wait a bit for
+the process to finish.
 
 If not specified, the default is C<TERM/1 INT/1 QUIT/1>, meaning:
 
@@ -895,16 +892,14 @@ If not specified, the default is C<TERM/1 INT/1 QUIT/1>, meaning:
 
 =head1 GLOBAL VARIABLES
 
-This module uses the following global variables (none of them being
-exported):
+This module uses the following global variables (none of them being exported):
 
 =over
 
 =item $Transient
 
-true if the process is about to exec() or exit(), there is usually no
-need to perform any cleanup (e.g. in an END block) for this kind of
-process
+true if the process is about to exec() or exit(), there is usually no need to
+perform any cleanup (e.g. in an END block) for this kind of process
 
 =back
 

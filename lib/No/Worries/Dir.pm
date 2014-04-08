@@ -13,13 +13,14 @@
 package No::Worries::Dir;
 use strict;
 use warnings;
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
+use No::Worries qw($_IntegerRegexp);
 use No::Worries::Die qw(dief);
 use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate :types);
@@ -54,7 +55,7 @@ sub _mkdir ($$) {
 # public interface
 
 my %dir_ensure_options = (
-    mode => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    mode => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
 );
 
 sub dir_ensure ($@) {
@@ -72,7 +73,7 @@ sub dir_ensure ($@) {
 #
 
 my %dir_make_options = (
-    mode => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    mode => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
 );
 
 sub dir_make ($@) {
@@ -175,25 +176,25 @@ No::Worries::Dir - directory handling without worries
 
 =head1 DESCRIPTION
 
-This module eases directory handling by providing convenient wrappers
-around standard directory functions. All the functions die() on error.
+This module eases directory handling by providing convenient wrappers around
+standard directory functions. All the functions die() on error.
 
 =head1 FUNCTIONS
 
-This module provides the following functions (none of them being
-exported by default):
+This module provides the following functions (none of them being exported by
+default):
 
 =over
 
 =item dir_change(PATH)
 
-change the working directory to the given path; this is a safe thin
-wrapper on top of chdir()
+change the working directory to the given path; this is a safe thin wrapper on
+top of chdir()
 
 =item dir_ensure(PATH[, OPTIONS])
 
-make sure the given path is an existing directory, creating it
-(including its parents) if needed; supported options:
+make sure the given path is an existing directory, creating it (including its
+parents) if needed; supported options:
 
 =over
 
@@ -203,8 +204,8 @@ make sure the given path is an existing directory, creating it
 
 =item dir_make(PATH[, OPTIONS])
 
-make the given directory; this is a safe thin wrapper on top of
-mkdir(); supported options:
+make the given directory; this is a safe thin wrapper on top of mkdir();
+supported options:
 
 =over
 
@@ -219,13 +220,12 @@ return the parent directory of the given path
 
 =item dir_read(PATH)
 
-read the given directory and return its list of entries except C<.>
-and C<..>
+read the given directory and return its list of entries except C<.> and C<..>
 
 =item dir_remove(PATH)
 
-remove the given directory (that must exist and be empty); this is a
-safe thin wrapper on top of rmdir()
+remove the given directory (that must exist and be empty); this is a safe thin
+wrapper on top of rmdir()
 
 =back
 

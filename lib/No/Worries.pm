@@ -13,8 +13,8 @@
 package No::Worries;
 use strict;
 use warnings;
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.28 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.29 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
@@ -27,7 +27,7 @@ use No::Worries::Export qw(export_control);
 # global variables
 #
 
-our($HostName, $ProgramName);
+our($HostName, $ProgramName, $_IntegerRegexp, $_NumberRegexp);
 
 #
 # module initialization
@@ -42,6 +42,10 @@ $HostName =~ s/\..+$//;
 $ProgramName = $0 || "<unknown-program-name>";
 $ProgramName =~ s/^.*\///;
 
+# private global variables
+$_IntegerRegexp = qr/^\d+$/;
+$_NumberRegexp  = qr/^(\d+\.)?\d+$/;
+
 #
 # export control
 #
@@ -51,6 +55,7 @@ sub import : method {
 
     $pkg = shift(@_);
     grep($exported{$_}++, qw($HostName $ProgramName));
+    grep($exported{$_}++, qw($_IntegerRegexp $_NumberRegexp));
     export_control(scalar(caller()), $pkg, \%exported, @_);
 }
 

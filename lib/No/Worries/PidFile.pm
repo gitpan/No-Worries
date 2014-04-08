@@ -13,14 +13,15 @@
 package No::Worries::PidFile;
 use strict;
 use warnings;
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.18 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.20 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
 use Fcntl qw(:DEFAULT :flock :seek);
+use No::Worries qw($_IntegerRegexp $_NumberRegexp);
 use No::Worries::Die qw(dief);
 use No::Worries::Export qw(export_control);
 use No::Worries::Proc qw(proc_terminate);
@@ -129,11 +130,60 @@ sub _kill ($$$%) {
 }
 
 #
+# check a process
+#
+
+sub _status ($%) {
+    my($path, %option) = @_;
+    my($fh, @stat, $data, $pid, $status, $message, $lsb);
+
+    $status = 0;
+    unless (sysopen($fh, $path, O_RDWR)) {
+        if ($! == ENOENT) {
+            ($message, $lsb) =
+                ("does not seem to be running (no pid file)", 3);
+            goto done;
+        }
+        dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
+    }
+    @stat = stat($fh)
+        or dief("cannot stat(%s): %s", $path, $!);
+    $data = _read($path, $fh);
+    if ($data eq "") {
+        # this can happen in pf_set(), between open() and lock()
+        ($message, $lsb) =
+            ("does not seem to be running yet (empty pid file)", 4);
+        goto done;
+    }
+    if ($data =~ /^(\d+)(\s+([a-z]+))?\s*$/s) {
+        $pid = $1;
+    } else {
+        dief("unexpected pid file contents in %s: %s", $path, $data);
+    }
+    unless (_alive($pid)) {
+        ($message, $lsb) =
+            ("(pid $pid) does not seem to be running anymore", 1);
+        goto done;
+    }
+    $data = localtime($stat[ST_MTIME]);
+    if ($option{freshness} and
+        $stat[ST_MTIME] < Time::HiRes::time() - $option{freshness}) {
+        ($message, $lsb) =
+            ("(pid $pid) does not seem to be running anymore since $data", 4);
+        goto done;
+    }
+    # so far so good ;-)
+    ($status, $message, $lsb) = (1, "(pid $pid) was active on $data", 0);
+  done:
+    return($status, $message, $lsb);
+}
+
+#
 # set the pid file
 #
 
 my %pf_set_options = (
-    pid => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    pid => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
 );
 
 sub pf_set ($@) {
@@ -152,7 +202,7 @@ sub pf_set ($@) {
 #
 
 my %pf_check_options = (
-    pid => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    pid => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
 );
 
 sub pf_check ($@) {
@@ -207,51 +257,27 @@ sub pf_unset ($) {
 #
 
 my %pf_status_options = (
-    freshness => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    freshness => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
+    timeout   => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
 );
 
 sub pf_status ($@) {
-    my($path, %option, $fh, @stat, $data, $pid, $status, $message, $lsb);
+    my($path, %option, $maxtime, $status, $message, $lsb);
 
     $path = shift(@_);
     %option = validate(@_, \%pf_status_options) if @_;
-    $status = 0;
-    unless (sysopen($fh, $path, O_RDWR)) {
-        if ($! == ENOENT) {
-            ($message, $lsb) =
-                ("does not seem to be running (no pid file)", 3);
-            goto done;
+    if ($option{timeout}) {
+        # check multiple times until success or timeout
+        $maxtime = Time::HiRes::time() + $option{timeout};
+        while (1) {
+            ($status, $message, $lsb) = _status($path, %option);
+            last if $status or Time::HiRes::time() > $maxtime;
+            Time::HiRes::sleep(0.1);
         }
-        dief("cannot sysopen(%s, O_RDWR): %s", $path, $!);
-    }
-    @stat = stat($fh)
-        or dief("cannot stat(%s): %s", $path, $!);
-    $data = _read($path, $fh);
-    if ($data eq "") {
-        # this can happen in pf_set(), between open() and lock()
-        ($message, $lsb) =
-            ("does not seem to be running yet (empty pid file)", 4);
-        goto done;
-    }
-    if ($data =~ /^(\d+)(\s+([a-z]+))?\s*$/s) {
-        $pid = $1;
     } else {
-        dief("unexpected pid file contents in %s: %s", $path, $data);
+        # check only once
+        ($status, $message, $lsb) = _status($path, %option);
     }
-    unless (_alive($pid)) {
-        ($message, $lsb) =
-            ("(pid $pid) does not seem to be running anymore", 1);
-        goto done;
-    }
-    $data = localtime($stat[ST_MTIME]);
-    if ($option{freshness} and $stat[ST_MTIME] < time() - $option{freshness}) {
-        ($message, $lsb) =
-            ("(pid $pid) does not seem to be running anymore since $data", 4);
-        goto done;
-    }
-    # so far so good ;-)
-    ($status, $message, $lsb) = (1, "(pid $pid) was active on $data", 0);
-  done:
     return($status, $message, $lsb) if wantarray();
     return($status);
 }
@@ -262,7 +288,7 @@ sub pf_status ($@) {
 
 my %pf_quit_options = (
     callback  => { optional => 1, type => CODEREF },
-    linger    => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    linger    => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
     kill      => { optional => 1, type => SCALAR },
 );
 
@@ -319,7 +345,7 @@ sub pf_quit ($@) {
 #
 
 my %pf_sleep_options = (
-    time => { optional => 1, type => SCALAR, regex => qr/^(\d+\.)?\d+$/ },
+    time => { optional => 1, type => SCALAR, regex => $_NumberRegexp },
 );
 
 sub pf_sleep ($@) {
@@ -500,6 +526,8 @@ informative message and an LSB compatible exit code; supported options:
 =over
 
 =item * C<freshness>: maximum age allowed for an active pid file
+
+=item * C<timeout>: check multiple times until success or timeout
 
 =back
 

@@ -13,13 +13,14 @@
 package No::Worries::File;
 use strict;
 use warnings;
-our $VERSION  = "1.1";
-our $REVISION = sprintf("%d.%02d", q$Revision: 1.15 $ =~ /(\d+)\.(\d+)/);
+our $VERSION  = "1.2";
+our $REVISION = sprintf("%d.%02d", q$Revision: 1.16 $ =~ /(\d+)\.(\d+)/);
 
 #
 # used modules
 #
 
+use No::Worries qw($_IntegerRegexp);
 use No::Worries::Die qw(dief);
 use No::Worries::Export qw(export_control);
 use Params::Validate qw(validate :types);
@@ -86,7 +87,7 @@ sub _file_read_io ($$$$) {
 
 my %file_read_options = (
     binmode => { optional => 1, type => SCALAR, regex => qr/^(binary|utf8)$/ },
-    bufsize => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    bufsize => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
     data    => { optional => 1, type => SCALARREF | CODEREF },
 );
 
@@ -150,7 +151,7 @@ sub _file_write_io ($$$$) {
 
 my %file_write_options = (
     binmode => { optional => 1, type => SCALAR, regex => qr/^(binary|utf8)$/ },
-    bufsize => { optional => 1, type => SCALAR, regex => qr/^\d+$/ },
+    bufsize => { optional => 1, type => SCALAR, regex => $_IntegerRegexp },
     data    => { optional => 0, type => SCALAR | SCALARREF | CODEREF },
 );
 
@@ -210,20 +211,19 @@ No::Worries::File - file handling without worries
 
 =head1 DESCRIPTION
 
-This module eases file handling by providing convenient wrappers
-around standard file functions. All the functions die() on error.
+This module eases file handling by providing convenient wrappers around
+standard file functions. All the functions die() on error.
 
 =head1 FUNCTIONS
 
-This module provides the following functions (none of them being
-exported by default):
+This module provides the following functions (none of them being exported by
+default):
 
 =over
 
 =item file_read(PATH[, OPTIONS])
 
-read the file at the given path and return its contents; supported
-options:
+read the file at the given path and return its contents; supported options:
 
 =over
 
@@ -231,15 +231,14 @@ options:
 
 =item * C<bufsize>: buffer size to use for I/O operations
 
-=item * C<data>: return the file contents via this scalar reference or
-code reference (see below)
+=item * C<data>: return the file contents via this scalar reference or code
+reference (see below)
 
 =back
 
 =item file_write(PATH[, OPTIONS])
 
-write the given contents to the file at the given path; supported
-options:
+write the given contents to the file at the given path; supported options:
 
 =over
 
@@ -247,8 +246,8 @@ options:
 
 =item * C<bufsize>: buffer size to use for I/O operations
 
-=item * C<data>: provide the file contents via this scalar, scalar
-reference or code reference (see below)
+=item * C<data>: provide the file contents via this scalar, scalar reference
+or code reference (see below)
 
 =back
 
@@ -256,33 +255,32 @@ reference or code reference (see below)
 
 =head1 OPTIONS
 
-All the functions support a C<binmode> option specifying how the file
-should be accessed:
+All the functions support a C<binmode> option specifying how the file should
+be accessed:
 
 =over
 
 =item * C<binary>: binmode(FH) will be used to treat the file as binary
 
-=item * C<utf8>: binmode(FH, ":encoding(utf8)") will be used to select
-UTF-8 encoding
+=item * C<utf8>: binmode(FH, ":encoding(utf8)") will be used to select UTF-8
+encoding
 
 =item * otherwise: binmode() will not be used (this is the default)
 
 =back
 
-file_read() can be given a code reference via the C<data> option.
-Each time data is read via sysread(), the subroutine will be called
-with the read data. At the end of the file, the subroutine will be
-called with an empty string.
+file_read() can be given a code reference via the C<data> option.  Each time
+data is read via sysread(), the subroutine will be called with the read
+data. At the end of the file, the subroutine will be called with an empty
+string.
 
-file_write() can be given a code reference via the C<data> option. It
-should return data in a way similar to sysread(), returning an empty
-string to indicate the end of the data to write to the file.
+file_write() can be given a code reference via the C<data> option. It should
+return data in a way similar to sysread(), returning an empty string to
+indicate the end of the data to write to the file.
 
 =head1 GLOBAL VARIABLES
 
-This module uses the following global variables (none of them being
-exported):
+This module uses the following global variables (none of them being exported):
 
 =over
 
